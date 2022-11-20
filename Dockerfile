@@ -45,7 +45,7 @@ RUN git clone  https://github.com/ethz-asl/mav_comm.git robot_ws/src/mav_comm
 
 RUN git clone  https://github.com/OctoMap/octomap_ros.git robot_ws/src/octomap_ros
 
-RUN git clone https://github.com/ahmgam/multirobot_sim.git robot_ws/src/
+RUN git clone https://github.com/ahmgam/multirobot_sim.git robot_ws/src/multirobot_sim
 
 RUN /bin/bash -c '. /opt/ros/noetic/setup.bash; cd robot_ws; catkin_make'
 
