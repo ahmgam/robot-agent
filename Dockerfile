@@ -51,10 +51,6 @@ RUN /bin/bash -c '. /opt/ros/noetic/setup.bash; cd robot_ws; catkin_make'
 
 COPY ./entrypoint.sh /
 
-EXPOSE 11311
-
-EXPOSE 11345
-
 RUN chmod +x entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
