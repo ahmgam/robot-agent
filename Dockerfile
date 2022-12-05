@@ -23,11 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/*
 
-ENV TURTLEBOT3_MODEL=waffle            
-
-ENV ROS_MASTER_URI=http://gemylab:11311/
-
-ENV GAZEBO_MASTER_URI=http://127.0.0.1:11345          
+ENV TURTLEBOT3_MODEL=waffle               
 
 RUN mkdir -p robot_ws/src
   
@@ -55,4 +51,4 @@ RUN chmod +x entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD ["bash"]
+#CMD ["bash"]
