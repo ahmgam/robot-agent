@@ -35,13 +35,13 @@ then
   if [ "$ROBOT_TYPE" == "uav" ]
   then
     echo "robot type is uav"
-    roslaunch multirobot_sim uav-docker.launch
+    roslaunch --wait --local -v /robot_ws/src/multirobot_sim/launch/uav-docker.launch
   elif [ "$ROBOT_TYPE" == "ugv" ]
   then
     echo "robot type is ugv"
-    roslaunch multirobot_sim ugv-docker.launch
+    roslaunch --wait --local -v /robot_ws/src/multirobot_sim/launch/ugv-docker.launch
   else
-    echo "robot type is unknown"
+    echo "robot type is shit"
     exit
   fi
 else
