@@ -21,7 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgflags-dev \
     libgoogle-glog-dev \
     protobuf-compiler libprotobuf-dev \
+    apt-get install ros-noetic-map-server \
     && rm -rf /var/lib/apt/lists/*
+
+RUN pip install pygame scipy
 
 ENV TURTLEBOT3_MODEL=waffle               
 
