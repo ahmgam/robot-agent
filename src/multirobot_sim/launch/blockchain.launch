@@ -66,7 +66,7 @@
         <node pkg="multirobot_sim" type="dummy_transactions.py" name="dummy_transactions" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
             <param name="node_type" value="$(arg node_type)"/>
-            <param_name="update_interval" value="$(arg update_interval)"/>
+            <param name="update_interval" value="$(arg update_interval)"/>
         </node>   
     </group>
 </launch>
