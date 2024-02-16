@@ -1,0 +1,41 @@
+version: "3"
+services:
+  mosquittoo:
+    image: eclipse-mosquitto
+    container_name: mosquittoo
+    restart: always
+    environment:
+      - MOSQUITTO_USERNAME=admin
+      - MOSQUITTO_PASSWORD=passw123
+    ports:
+      - "1884:1883"
+  robot1:
+    image: roschain:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robot1
+    environment:
+      - ROBOT_NAME=robot1
+      - ROBOT_TYPE=robot
+      - MQTT_HOST=mosquittoo
+      - MQTT_PORT=1884
+      - MQTT_USER=admin
+      - MQTT_PASS=passw123
+      - SECRET=lkfpoewrvcmlsdjfjehf
+      - UPDATE_INTERVAL=5
+  robot2:
+    image: roschain:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robot2
+    environment:
+      - ROBOT_NAME=robot2
+      - ROBOT_TYPE=robot
+      - MQTT_HOST=mosquittoo
+      - MQTT_PORT=1884
+      - MQTT_USER=admin
+      - MQTT_PASS=passw123
+      - SECRET=lkfpoewrvcmlsdjfjehf
+      - UPDATE_INTERVAL=5
