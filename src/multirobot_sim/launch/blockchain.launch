@@ -10,7 +10,7 @@
     <arg name="secret" default="$(env SECRET)"/>
     <arg name="update_interval" default="$(env UPDATE_INTERVAL)"/>
     <arg name="max_delay" default="10.0"/>
-    <arg name="schema" default="$(arg base_dir)/schema.sql"/>
+    <arg name="schema" default="$(arg base_directory)/schema.sql"/>
 
   <!--Robot namespace-->
     <group ns="$(arg node_id)">
