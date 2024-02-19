@@ -10,9 +10,7 @@ services:
       - ROBOT_NAME=robot1
       - ROBOT_TYPE=robot
       - MQTT_HOST=localhost
-      - MQTT_PORT=1884
-      - MQTT_USER=admin
-      - MQTT_PASS=passw123
+      - MQTT_PORT=1883
       - SECRET=lkfpoewrvcmlsdjfjehf
       - UPDATE_INTERVAL=5
     volumes:
@@ -27,9 +25,7 @@ services:
       - ROBOT_NAME=robot2
       - ROBOT_TYPE=robot
       - MQTT_HOST=localhost
-      - MQTT_PORT=1884
-      - MQTT_USER=admin
-      - MQTT_PASS=passw123
+      - MQTT_PORT=1883
       - SECRET=lkfpoewrvcmlsdjfjehf
       - UPDATE_INTERVAL=5
     volumes:
