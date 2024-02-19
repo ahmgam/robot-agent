@@ -3,8 +3,6 @@
     <arg name="node_id" default="$(env ROBOT_NAME)"/>
     <arg name="node_type" default="$(env ROBOT_TYPE)"/>
     <arg name="endpoint" default="$(env MQTT_HOST)"/>
-    <arg name="username" default="$(env MQTT_USER)"/>
-    <arg name="password" default="$(env MQTT_PASS)"/>
     <arg name="port" default="$(env MQTT_PORT)"/>
     <arg name="base_directory" default="$(find multirobot_sim)/files"/>
     <arg name="secret" default="$(env SECRET)"/>
@@ -40,13 +38,12 @@
         </node>   
         <node pkg="multirobot_sim" type="key_store.py" name="key_store" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
-            <param name="public_key_file" value="$(arg node_id)_pk.pem"/>
-            <param name="private_key_file" value="$(arg node_type)_sk.pem"/>
+            <param name="public_key_file" value="$(arg base_directory)/$(arg node_id)_pk.pem"/>
+            <param name="private_key_file" value="$(arg base_directory)/$(arg node_type)_sk.pem"/>
         </node>   
         <node pkg="multirobot_sim" type="connector.py" name="connector" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
             <param name="endpoint" value="$(arg endpoint)"/>
-            <param name="auth" value="$(arg username):$(arg password)"/>
             <param name="port" value="$(arg port)"/>
         </node>  
         <node pkg="multirobot_sim" type="blockchain.py" name="blockchain" output="screen" required="true">

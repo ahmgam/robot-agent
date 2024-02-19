@@ -113,9 +113,9 @@ if __name__ == '__main__':
     except:
         auth = None
         rospy.loginfo(f"connector: Getting auth argument, and got : {auth}")
-    
-    auth = str(auth).split(":")
-    auth = {"username":auth[0],"password":auth[1]}
+    if auth is not None:
+        auth = str(auth).split(":")
+        auth = {"username":auth[0],"password":auth[1]}
     node = MQTTCommunicationModule(node_id,endpoint,port,auth)
     while not rospy.is_shutdown():
         if node.is_available():

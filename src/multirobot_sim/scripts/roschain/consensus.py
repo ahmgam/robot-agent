@@ -40,17 +40,17 @@ class SBFT:
         #init sessions
         loginfo(f"{self.node_id}: SBFT:Initializing sessions service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call",FunctionCall,True)
-        self.sessions.wait_for_service()
+        self.sessions.wait_for_service(100)
         #init blockchain
         loginfo(f"{self.node_id}: SBFT:Initializing blockchain service")
         self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call",FunctionCall,True)
-        self.blockchain.wait_for_service()
+        self.blockchain.wait_for_service(100)
         #define blockchain publisher 
         self.blockchain_publisher = Publisher(f"/{self.node_id}/blockchain/blockchain_handler",String,queue_size=10)
         #define key store proxy
         loginfo(f"{self.node_id}: SBFT:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service()
+        self.key_store.wait_for_service(100)
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
