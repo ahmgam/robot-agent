@@ -21,7 +21,7 @@ class Database (object):
         #self.working = False
         self.node_id = node_id
         self.query_client = ServiceProxy(f"database/query", DatabaseQuery)
-        self.query_client.wait_for_service(100)
+        self.query_client.wait_for_service(10)
         self.tabels = self.__get_db_meta()
         
 
@@ -283,7 +283,7 @@ class Blockchain:
         #init sessions
         loginfo(f"{self.node_id}: Blockchain:Initializing database proxy")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call",FunctionCall,True)
-        self.sessions.wait_for_service(100)
+        self.sessions.wait_for_service(10)
         # create tables
         self.create_tables()
         # define queue for storing data

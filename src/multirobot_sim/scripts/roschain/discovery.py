@@ -38,11 +38,11 @@ class DiscoveryProtocol:
         #define session
         loginfo(f"{self.node_id}: Discovery:Initializing session service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
-        self.sessions.wait_for_service(100)
+        self.sessions.wait_for_service(10)
         #define key store proxy
         loginfo(f"{self.node_id}: Discovery:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service(100)
+        self.key_store.wait_for_service(10)
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])

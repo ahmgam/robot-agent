@@ -1,15 +1,29 @@
 version: "3"
 services:
+  mosquittoo:
+    image: eclipse-mosquitto
+    container_name: mosquittoo
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    networks:
+      - robot1
+      - robot2
+    volumes:
+       - ./mosquitto/data:/etc/mosquitto
+       - ./mosquitto/config:/mosquitto/config
   robot1:
     image: roschain:latest
     build:
       context: .
       dockerfile: Dockerfile
     container_name: robot1
+    networks:
+      - robot1
     environment:
       - ROBOT_NAME=robot1
       - ROBOT_TYPE=robot
-      - MQTT_HOST=localhost
+      - MQTT_HOST=mosquittoo
       - MQTT_PORT=1883
       - SECRET=lkfpoewrvcmlsdjfjehf
       - UPDATE_INTERVAL=5
@@ -21,12 +35,19 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: robot2
+    networks:
+      - robot2
     environment:
       - ROBOT_NAME=robot2
       - ROBOT_TYPE=robot
-      - MQTT_HOST=localhost
+      - MQTT_HOST=mosquittoo
       - MQTT_PORT=1883
       - SECRET=lkfpoewrvcmlsdjfjehf
       - UPDATE_INTERVAL=5
     volumes:
       - ./robot2:/robot_ws/src/multirobot_sim/files
+
+#define network for each robot
+networks:
+  robot1:
+  robot2:

@@ -40,17 +40,17 @@ class SBFT:
         #init sessions
         loginfo(f"{self.node_id}: SBFT:Initializing sessions service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call",FunctionCall,True)
-        self.sessions.wait_for_service(100)
+        self.sessions.wait_for_service(10)
         #init blockchain
         loginfo(f"{self.node_id}: SBFT:Initializing blockchain service")
         self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call",FunctionCall,True)
-        self.blockchain.wait_for_service(100)
+        self.blockchain.wait_for_service(10)
         #define blockchain publisher 
         self.blockchain_publisher = Publisher(f"/{self.node_id}/blockchain/blockchain_handler",String,queue_size=10)
         #define key store proxy
         loginfo(f"{self.node_id}: SBFT:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service(100)
+        self.key_store.wait_for_service(10)
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
@@ -272,7 +272,6 @@ class SBFT:
         #add message to prepare
         self.views[view_id]["prepare"].append(msg)
         #check if the number of prepare is more than 
-        print(self.views[view_id])
         if len(self.views[view_id]["prepare"]) < ceil((2/3)*((len(view["node_ids"])-1)/3)):
             return None
         #send prepare-collect message to source node
