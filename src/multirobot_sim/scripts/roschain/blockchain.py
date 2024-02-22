@@ -496,7 +496,7 @@ class Blockchain:
         #
         #sending log info 
         time_now = mktime(datetime.datetime.now().timetuple())
-        log_msg = f"{time_now},block,{time_now}"
+        log_msg = f"{time_now},block,{last_block_id+1}"
         self.log_publisher.publish(log_msg)
         
         #add the transaction to the blockchain
@@ -513,7 +513,7 @@ class Blockchain:
         hash = msg["hash"]
         msg = msg["data"]
         msg["data"]=json.loads(msg["data"])
-        log_msg = f"{mktime(datetime.datetime.now().timetuple())},transaction,{msg['time']}"
+        log_msg = f"{mktime(datetime.datetime.now().timetuple())},transaction,{msg['msg_id']},{msg['time']}"
         self.log_publisher.publish(log_msg)
         self.buffer.put(msg,msg["time"],hash)
         if self.buffer.count() > self.block_size+ self.tolerance:

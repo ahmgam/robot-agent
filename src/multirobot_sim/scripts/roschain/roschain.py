@@ -6,6 +6,8 @@ from time import mktime
 from multirobot_sim.srv import GetBCRecords,SubmitTransaction,GetBCRecordsResponse,SubmitTransactionResponse,FunctionCall
 from std_srvs.srv import Trigger,TriggerResponse
 from std_msgs.msg import String
+from random import choices,randint
+from string import ascii_lowercase
 
 #from multirobot_sim.srv import GetBCRecords,SubmitTransaction
 #####################################
@@ -65,14 +67,16 @@ class RosChain:
         table_name = args.table_name
         data = args.message
         msg_time = mktime(datetime.datetime.now().timetuple())
+        msg_id = ''.join(choices(ascii_lowercase, k=5))
         message = {
             "table_name":table_name,
             "data":data,
-            "time":msg_time
+            "time":msg_time,
+            "msg_id":msg_id
             #"time":datetime.datetime.fromtimestamp(msg_time).strftime("%Y-%m-%d %H:%M:%S") 
         }
-        log_msg = f"{msg_time},msg,{msg_time}"
-        self.log_publisher.publish(log_msg)
+        log_msg = f"{msg_time},msg,{msg_id}"
+        #self.log_publisher.publish(log_msg)
         #payload 
         payload ={
             "message":message,
