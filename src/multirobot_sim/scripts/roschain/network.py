@@ -8,7 +8,7 @@ from time import mktime
 from rospy import Subscriber,Publisher,ROSInterruptException,Service,ServiceProxy,Rate,init_node,get_namespace,get_param,is_shutdown
 from multirobot_sim.srv import FunctionCall,FunctionCallResponse
 from std_msgs.msg import String
-
+from time import time
 class NetworkInterface:
     
     def __init__(self,node_id,node_type,DEBUG=True):
@@ -50,11 +50,11 @@ class NetworkInterface:
         #define sessions service proxy
         loginfo(f"{self.node_id}: NetworkInterface:Initializing sessions service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
-        self.sessions.wait_for_service(10)
+        self.sessions.wait_for_service(timeout=100)
         #define key store proxy
         loginfo(f"{self.node_id}: NetworkInterface:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service(10)
+        self.key_store.wait_for_service(timeout=100)
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
@@ -266,10 +266,13 @@ if __name__ == "__main__":
         if not network.queue.empty():
             message = network.queue.get()
             #loginfo(f"{network.node_id}: Network: Handling message of type {message['data']['type']}")
+            start_time = time()
             if message["type"] == "handle":
                 network.handle_message(message["data"])
+                print(f"Time taken to handle message : {time()-start_time}")
             elif message["type"] == "prepare":
                 network.send_message(message["data"]["type"],message["data"]["target"],message["data"]["message"],message["data"].get("signed",False))
+                print(f"Time taken to send message : {time()-start_time}")            
             else:
                 loginfo(f"{network.node_id}: Invalid message type on network node, message : {message}")
         rate.sleep()

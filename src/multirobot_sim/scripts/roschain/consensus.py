@@ -4,7 +4,7 @@ from string import ascii_lowercase
 import json
 from encryption import EncryptionModule
 from math import ceil
-from time import mktime
+from time import mktime,time
 import datetime
 from rospy import ServiceProxy,Publisher,Subscriber,Service,ROSInterruptException,Rate,init_node,get_namespace,get_param,loginfo,is_shutdown
 from multirobot_sim.srv import FunctionCall,FunctionCallResponse
@@ -40,17 +40,17 @@ class SBFT:
         #init sessions
         loginfo(f"{self.node_id}: SBFT:Initializing sessions service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call",FunctionCall,True)
-        self.sessions.wait_for_service(10)
+        self.sessions.wait_for_service(timeout=100)
         #init blockchain
         loginfo(f"{self.node_id}: SBFT:Initializing blockchain service")
         self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call",FunctionCall,True)
-        self.blockchain.wait_for_service(10)
+        self.blockchain.wait_for_service(timeout=100)
         #define blockchain publisher 
         self.blockchain_publisher = Publisher(f"/{self.node_id}/blockchain/blockchain_handler",String,queue_size=10)
         #define key store proxy
         loginfo(f"{self.node_id}: SBFT:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service(10)
+        self.key_store.wait_for_service(timeout=100)
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
@@ -105,34 +105,42 @@ class SBFT:
         #handle message
         msg = msg["message"]["data"]
         operation = msg['operation']
+        start_time = time()
         if operation == 'pre-prepare':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting pre-prepare")
             self.pre_prepare(msg)
+            print(f"Time taken for pre_prepare: {time()-start_time}")
         elif operation == 'prepare':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting prepare")
             self.prepare(msg)
+            print(f"Time taken for prepare: {time()-start_time}")
         elif operation == 'prepare-collect':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting prepare-collect")
             self.prepare_collect(msg)
+            print(f"Time taken for prepare_collect: {time()-start_time}")
         elif operation == 'commit':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting commit")
             self.commit(msg)
+            print(f"Time taken for commit: {time()-start_time}")
         elif operation == 'commit-collect':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting commit-collect")
             self.commit_collect(msg)
+            print(f"Time taken for commit_collect: {time()-start_time}")
         elif operation == 'sync_request':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting sync_request")
             self.make_function_call(self.blockchain,"handle_sync_request",msg)
+            print(f"Time taken for sync_request: {time()-start_time}")
         elif operation == 'sync_reply':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting sync_response")
             self.make_function_call(self.blockchain,"handle_sync_reply",msg)
+            print(f"Time taken for sync_reply: {time()-start_time}")
         else:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['message']['node_id']} of type {msg['message']['type']}, but no handler found")

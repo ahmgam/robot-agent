@@ -4,11 +4,11 @@
     <arg name="node_type" default="$(env ROBOT_TYPE)"/>
     <arg name="endpoint" default="$(env MQTT_HOST)"/>
     <arg name="port" default="$(env MQTT_PORT)"/>
-    <arg name="base_directory" default="$(find multirobot_sim)/files"/>
+    <arg name="base_directory" default="$(find multirobot_sim)"/>
     <arg name="secret" default="$(env SECRET)"/>
     <arg name="update_interval" default="$(env UPDATE_INTERVAL)"/>
     <arg name="max_delay" default="10.0"/>
-    <arg name="schema" default="$(arg base_directory)/schema.sql"/>
+    <arg name="schema" default="$(arg base_directory)/schema/schema.sql"/>
 
   <!--Robot namespace-->
     <group ns="$(arg node_id)">
@@ -38,8 +38,8 @@
         </node>   
         <node pkg="multirobot_sim" type="key_store.py" name="key_store" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
-            <param name="public_key_file" value="$(arg base_directory)/$(arg node_id)_pk.pem"/>
-            <param name="private_key_file" value="$(arg base_directory)/$(arg node_type)_sk.pem"/>
+            <param name="public_key_file" value="$(arg base_directory)/files/pk.pem"/>
+            <param name="private_key_file" value="$(arg base_directory)/files/sk.pem"/>
         </node>   
         <node pkg="multirobot_sim" type="connector.py" name="connector" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
@@ -49,7 +49,7 @@
         <node pkg="multirobot_sim" type="blockchain.py" name="blockchain" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
             <param name="node_type" value="$(arg node_type)"/>
-            <param name="base_dir" value="$(arg base_directory)"/>
+            <param name="base_dir" value="$(arg base_directory)/files"/>
             <param name="secret" value="$(arg secret)"/>
         </node>  
         <node pkg="multirobot_sim" type="session.py" name="session" output="screen" required="true">
@@ -57,7 +57,7 @@
         </node> 
         <node pkg="multirobot_sim" type="database.py" name="database" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
-            <param name="db_dir" value="$(arg base_directory)"/>
+            <param name="db_dir" value="$(arg base_directory)/files"/>
             <param name="schema" value="$(arg schema)"/>
         </node>  
         <node pkg="multirobot_sim" type="dummy_transactions.py" name="dummy_transactions" output="screen" required="true">

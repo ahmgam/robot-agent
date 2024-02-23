@@ -20,7 +20,7 @@ class SessionManager:
         #define key store proxy
         rospy.loginfo(f"{self.node_id}: Discovery:Initializing key store service")
         self.key_store = rospy.ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service(10)
+        self.key_store.wait_for_service(timeout=100)
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk = keys["pk"]

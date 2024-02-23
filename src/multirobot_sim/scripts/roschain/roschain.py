@@ -42,11 +42,11 @@ class RosChain:
         #define blockchain service proxy 
         loginfo(f"{self.node_id}: ROSChain:Initializing blockchain service")
         self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call", FunctionCall)
-        self.blockchain.wait_for_service(10)
+        self.blockchain.wait_for_service(timeout=100)
         #define consensus service
         loginfo(f"{self.node_id}: ROSChain:Initializing consensus service")
         self.consensus = ServiceProxy(f"/{self.node_id}/consensus/call", FunctionCall)
-        self.consensus.wait_for_service(10)
+        self.consensus.wait_for_service(timeout=100)
         loginfo(f"{self.node_id}: RSOChain:Initialized successfully")
         #define connector log publisher
         self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
