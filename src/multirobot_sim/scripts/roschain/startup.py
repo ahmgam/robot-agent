@@ -44,8 +44,8 @@ def load_keys(pk_file,sk_file):
         return None, None
   
 #get path and node_id from args
-public_key_file = "/robot_ws/src/multirobot_sim/files/files/pk.pem"
-private_key_file =  "/robot_ws/src/multirobot_sim/files/files/sk.pem"
+public_key_file = "/robot_ws/src/multirobot_sim/files/pk.pem"
+private_key_file =  "/robot_ws/src/multirobot_sim/files/sk.pem"
 pk, sk = load_keys(public_key_file, private_key_file)
 if pk is None or sk is None:
     pk, sk = generate_keys()
