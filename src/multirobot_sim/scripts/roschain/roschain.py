@@ -45,7 +45,7 @@ class RosChain:
         self.blockchain.wait_for_service(timeout=100)
         #define consensus service
         loginfo(f"{self.node_id}: ROSChain:Initializing consensus service")
-        self.consensus = ServiceProxy(f"/{self.node_id}/consensus/call", FunctionCall)
+        self.consensus = Publisher(f"/{self.node_id}/consensus/consensus_handler",String,queue_size=10)
         self.consensus.wait_for_service(timeout=100)
         loginfo(f"{self.node_id}: RSOChain:Initialized successfully")
         #define connector log publisher
@@ -81,10 +81,12 @@ class RosChain:
         payload ={
             "message":message,
             "source":self.node_id,
-            "timestamp":msg_time
+            "timestamp":msg_time,
+            "operation": "submit"
         }
+        msg = {"message": {"data": payload}}
         #add message to the parent queue
-        self.make_function_call(self.consensus,"send",payload)
+        self.consensus.publish(json.dumps(msg))
         return SubmitTransactionResponse("Success")
 
     def get_records(self,last_record):

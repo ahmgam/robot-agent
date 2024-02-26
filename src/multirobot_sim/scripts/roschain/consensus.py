@@ -108,7 +108,12 @@ class SBFT:
         msg = msg["message"]["data"]
         operation = msg['operation']
         start_time = time()
-        if operation == 'pre-prepare':
+        if operation == 'submit':
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting send")
+            self.send(msg)
+            print(f"Time taken for pre_prepare: {time()-start_time}")
+        elif operation == 'pre-prepare':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting pre-prepare")
             self.pre_prepare(msg)

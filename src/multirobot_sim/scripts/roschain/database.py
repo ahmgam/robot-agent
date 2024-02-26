@@ -69,6 +69,8 @@ class Database (object):
         #get input request 
         while not self.input_queue.empty():
             op_id = self.input_queue.get()
+            while self.data.get(op_id) is None:
+                sleep(0.1)
             query = self.data[op_id]["query"]
             #execute query
             self.data[op_id]["result"] = self.query(query)
