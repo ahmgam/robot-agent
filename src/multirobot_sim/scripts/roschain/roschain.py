@@ -46,7 +46,6 @@ class RosChain:
         #define consensus service
         loginfo(f"{self.node_id}: ROSChain:Initializing consensus service")
         self.consensus = Publisher(f"/{self.node_id}/consensus/consensus_handler",String,queue_size=10)
-        self.consensus.wait_for_service(timeout=100)
         loginfo(f"{self.node_id}: RSOChain:Initialized successfully")
         #define connector log publisher
         self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
@@ -75,7 +74,7 @@ class RosChain:
             "msg_id":msg_id
             #"time":datetime.datetime.fromtimestamp(msg_time).strftime("%Y-%m-%d %H:%M:%S") 
         }
-        log_msg = f"{msg_time},msg,{msg_id}"
+        #log_msg = f"{msg_time},msg,{msg_id}"
         #self.log_publisher.publish(log_msg)
         #payload 
         payload ={
