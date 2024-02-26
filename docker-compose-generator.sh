@@ -32,7 +32,7 @@ do
       - UPDATE_INTERVAL=5
     volumes:
       - ./robots/$service_name/files:/robot_ws/src/multirobot_sim/files
-      - ./robots/$service_name/schema:/robot_ws/src/multirobot_sim/schema
+      - ./robots/schema:/robot_ws/src/multirobot_sim/schema
 EOF
 )
 

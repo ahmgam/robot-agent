@@ -19,11 +19,10 @@ class HeartbeatProtocol:
         self.heartbeat_interval = 5
         #define node
         self.node = init_node("heartbeat_protocol", anonymous=True)
-        #define heartbeat subscriber
-        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing heartbeat subscriber")
-        self.subscriber = Subscriber(f"/{self.node_id}/heartbeat/heartbeat_handler", String, self.to_queue)
-        #define network 
-        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",String,queue_size=10)
+        #define key store proxy
+        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing key store service")
+        self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
+        self.key_store.wait_for_service(timeout=100)
         #define sessions
         loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing sessions service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
@@ -32,10 +31,11 @@ class HeartbeatProtocol:
         loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing blockchain service")
         self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call", FunctionCall,True)
         self.blockchain.wait_for_service(timeout=100)
-        #define key store proxy
-        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing key store service")
-        self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service(timeout=100)
+        #define heartbeat subscriber
+        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing heartbeat subscriber")
+        self.subscriber = Subscriber(f"/{self.node_id}/heartbeat/heartbeat_handler", String, self.to_queue)
+        #define network 
+        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",String,queue_size=10)
         #define last heartbeat
         self.last_call = mktime(datetime.datetime.now().timetuple())+ randint(1,max_delay)
         #get public and private key 

@@ -30,15 +30,6 @@ class DiscoveryProtocol:
         self.discovery_interval = 10
         #define discovery last call
         self.last_call = mktime(datetime.datetime.now().timetuple()) + randint(1,max_delay)
-        #publisher
-        loginfo(f"{self.node_id}: Discovery:Initializing publisher and subscriber")
-        self.publisher = Publisher(f"/{self.node_id}/network/prepare_message", String, queue_size=10)
-        #subscriber 
-        self.subscriber = Subscriber(f"/{self.node_id}/discovery/discovery_handler", String, self.put_queue)
-        #define session
-        loginfo(f"{self.node_id}: Discovery:Initializing session service")
-        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
-        self.sessions.wait_for_service(timeout=100)
         #define key store proxy
         loginfo(f"{self.node_id}: Discovery:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
@@ -46,6 +37,15 @@ class DiscoveryProtocol:
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
+        #define session
+        loginfo(f"{self.node_id}: Discovery:Initializing session service")
+        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
+        self.sessions.wait_for_service(timeout=100)
+        #publisher
+        loginfo(f"{self.node_id}: Discovery:Initializing publisher and subscriber")
+        self.publisher = Publisher(f"/{self.node_id}/network/prepare_message", String, queue_size=10)
+        #subscriber 
+        self.subscriber = Subscriber(f"/{self.node_id}/discovery/discovery_handler", String, self.put_queue)
         # queue
         self.queue = Queue()
         loginfo(f"{self.node_id}: Discovery:Initialized successfully")

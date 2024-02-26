@@ -27,11 +27,19 @@ class NetworkInterface:
         self.heartbeat_interval = 5
         #init node
         self.node = init_node("network_interface", anonymous=True)
-        #define server
-        loginfo(f"{self.node_id}: NetworkInterface:Initializing network service")
-        self.server = Service(f"/{self.node_id}/network/call", FunctionCall, self.handle_function_call)
         #define queue
         self.queue = Queue()
+        #define key store proxy
+        loginfo(f"{self.node_id}: NetworkInterface:Initializing key store service")
+        self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
+        self.key_store.wait_for_service(timeout=100)
+        #get public and private key 
+        keys  = self.make_function_call(self.key_store,"get_rsa_key")
+        self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
+        #define sessions service proxy
+        loginfo(f"{self.node_id}: NetworkInterface:Initializing sessions service")
+        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
+        self.sessions.wait_for_service(timeout=100)
         #define connector subscriber
         loginfo(f"{self.node_id}: NetworkInterface:Initializing connector subscriber")
         self.subscriber = Subscriber(f"/{self.node_id}/network/handle_message", String, self.to_queue,("handle",))
@@ -47,17 +55,9 @@ class NetworkInterface:
         self.consensus_publisher = Publisher(f"/{self.node_id}/consensus/consensus_handler", String, queue_size=10)
         #Define sync publisher
         self.sync_publisher = Publisher(f"/{self.node_id}/blockchain/sync_handler", String, queue_size=10)
-        #define sessions service proxy
-        loginfo(f"{self.node_id}: NetworkInterface:Initializing sessions service")
-        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
-        self.sessions.wait_for_service(timeout=100)
-        #define key store proxy
-        loginfo(f"{self.node_id}: NetworkInterface:Initializing key store service")
-        self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service(timeout=100)
-        #get public and private key 
-        keys  = self.make_function_call(self.key_store,"get_rsa_key")
-        self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
+        #define server
+        loginfo(f"{self.node_id}: NetworkInterface:Initializing network service")
+        self.server = Service(f"/{self.node_id}/network/call", FunctionCall, self.handle_function_call)
         #define is_initialized
         loginfo(f"{self.node_id}: NetworkInterface:Initialized successfully")
         

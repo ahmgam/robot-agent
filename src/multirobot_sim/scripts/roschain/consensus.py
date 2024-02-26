@@ -30,13 +30,13 @@ class SBFT:
         #define node 
         self.node = init_node("consensus",anonymous=True)
         #define function call service
-        loginfo(f"{self.node_id}: SBFT:Initializing function call service")
-        self.server = Service(f"/{self.node_id}/consensus/call",FunctionCall,self.handle_function_call)
-        #init prepare message 
-        loginfo(f"{self.node_id}: SBFT:Initializing publisher and subscriber")
-        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",String,queue_size=10)
-        #message subscriber 
-        self.subscriber = Subscriber(f"/{self.node_id}/consensus/consensus_handler",String,self.handle_message)
+        #define key store proxy
+        loginfo(f"{self.node_id}: SBFT:Initializing key store service")
+        self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
+        self.key_store.wait_for_service(timeout=100)
+        #get public and private key 
+        keys  = self.make_function_call(self.key_store,"get_rsa_key")
+        self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
         #init sessions
         loginfo(f"{self.node_id}: SBFT:Initializing sessions service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call",FunctionCall,True)
@@ -45,17 +45,17 @@ class SBFT:
         loginfo(f"{self.node_id}: SBFT:Initializing blockchain service")
         self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call",FunctionCall,True)
         self.blockchain.wait_for_service(timeout=100)
+        #init prepare message 
+        loginfo(f"{self.node_id}: SBFT:Initializing publisher and subscriber")
+        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",String,queue_size=10)
+        #message subscriber 
+        self.subscriber = Subscriber(f"/{self.node_id}/consensus/consensus_handler",String,self.handle_message)
         #define blockchain publisher 
         self.blockchain_publisher = Publisher(f"/{self.node_id}/blockchain/blockchain_handler",String,queue_size=10)
-        #define key store proxy
-        loginfo(f"{self.node_id}: SBFT:Initializing key store service")
-        self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service(timeout=100)
-        #get public and private key 
-        keys  = self.make_function_call(self.key_store,"get_rsa_key")
-        self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
         # queue
         self.queue = Queue()
+        loginfo(f"{self.node_id}: SBFT:Initializing function call service")
+        self.server = Service(f"/{self.node_id}/consensus/call",FunctionCall,self.handle_function_call)
         loginfo(f"{self.node_id}: SBFT:Initialized successfully")
         
     def cron(self):
@@ -103,6 +103,8 @@ class SBFT:
         
     def handle(self, msg):
         #handle message
+        if type(msg["message"]) == str:
+            msg["message"]=json.loads(msg["message"])
         msg = msg["message"]["data"]
         operation = msg['operation']
         start_time = time()
@@ -542,7 +544,8 @@ if __name__ == "__main__":
     while not is_shutdown():
         consensus.cron()
         #check queue
-        if not consensus.queue.empty():
-            consensus.handle(consensus.queue.get())
+        msg = consensus.queue.get()
+        if msg:
+            consensus.handle(msg)
         rate.sleep()
             

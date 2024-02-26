@@ -20,7 +20,7 @@ class DummyTransactions:
         rospy.loginfo(f"{self.node_id}: dummy_transactions: Initializing get_records service client")
         self.is_ready = ServiceProxy(f'/{self.node_id}/roschain/is_ready',Trigger)
         self.is_ready.wait_for_service(timeout=100)
-        while not self.is_ready().success:
+        while self.is_ready().success == "False":
             rospy.loginfo(f"{self.node_id}: dummy_transactions: Waiting for roschain to be ready")
             rospy.sleep(5)
         self.submit_message = ServiceProxy(f'/{self.node_id}/roschain/submit_message',SubmitTransaction)
