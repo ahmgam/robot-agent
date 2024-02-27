@@ -198,7 +198,12 @@ class SBFT:
                 loginfo(f"{self.node_id}: View is already created")
             return
         #get the session 
-        session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",msg['source'])
+        try:
+            session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",msg['source'])
+        except Exception as e:
+            print(f"{self.node_id}: ERROR : {e.with_traceback()}")
+            print(msg)
+            exit()
         #verify signature
         msg_signature = msg.pop('signature')
         #stringify the data payload

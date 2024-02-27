@@ -266,9 +266,17 @@ class Blockchain:
         self.secret = secret
         #base directory
         self.base_dir = base_dir
+        #sync timeout
+        self.sync_timeout = 10
+        #sync views
+        self.views = OrderedDict()
+        #queue 
+        self.queue = Queue()
+        #buffer 
+        self.buffer = OrderedQueue(self.base_dir)
+        self.buffer.load()
         loginfo(f"{node_id}: Blockchain: Initializing")
         node = init_node("blochchain",anonymous=True)
-        
         # define database manager
         loginfo(f"{self.node_id}: Blockchain:Initializing database proxy")
         self.db = Database(self.node_id)
@@ -287,19 +295,9 @@ class Blockchain:
         self.create_tables()
         # define queue for storing data
         self.genesis_block()
-        #sync timeout
-        self.sync_timeout = 10
-        #sync views
-        self.views = OrderedDict()
-        #queue 
-        self.queue = Queue()
-        #buffer 
-        self.buffer = OrderedQueue(self.base_dir)
-        self.buffer.load()
         #define blockchain service
         self.server = Service(f"/{self.node_id}/blockchain/call",FunctionCall,self.handle_function_call)
         loginfo(f"{self.node_id}: Blockchain:Initialized successfully")
-        self.last_tx = self.get_last_committed_block()
         
         
     def get_last_committed_block(self):

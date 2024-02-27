@@ -24,7 +24,6 @@ class SessionManager:
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk = keys["pk"]
         self.sk = keys["sk"]
-        print(keys)
         self.node_states = OrderedDict({self.node_id:{"pk":self.pk,"last_active":mktime(datetime.now().timetuple())}})
         self.refresh_node_state_table()
         rospy.loginfo(f"{self.node_id}: SessionManager:Initializing sessions service")
