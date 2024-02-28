@@ -242,7 +242,7 @@ class NetworkInterface:
         elif str(message["type"]).startswith("sync"):
             self.sync_publisher.publish(json.dumps(message))
         elif message["type"]=="data_exchange":
-            self.consensus_publisher.publish(json.dumps(message))
+            self.consensus_publisher.publish(json.dumps(message["message"]))
         else:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: unknown message type {message['type']}")
@@ -266,13 +266,13 @@ if __name__ == "__main__":
         if not network.queue.empty():
             message = network.queue.get()
             #loginfo(f"{network.node_id}: Network: Handling message of type {message['data']['type']}")
-            start_time = time()
+            #start_time = time()
             if message["type"] == "handle":
                 network.handle_message(message["data"])
-                print(f"Time taken to handle message : {time()-start_time}")
+                #print(f"Time taken to handle message : {time()-start_time}")
             elif message["type"] == "prepare":
                 network.send_message(message["data"]["type"],message["data"]["target"],message["data"]["message"],message["data"].get("signed",False))
-                print(f"Time taken to send message : {time()-start_time}")            
+                #print(f"Time taken to send message : {time()-start_time}")            
             else:
                 loginfo(f"{network.node_id}: Invalid message type on network node, message : {message}")
         rate.sleep()

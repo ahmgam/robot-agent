@@ -97,57 +97,60 @@ class SBFT:
     
     def handle_message(self,msg):
         #parese message as json
-        msg = json.loads(msg.data)
+        #msg = json.loads(msg.data)
         #push message to queue
-        self.queue.put(msg)
-        
+        #self.queue.put(msg)
+        self.queue.put(msg.data)
     def handle(self, msg):
         #handle message
-        if type(msg["message"]) == str:
-            msg["message"]=json.loads(msg["message"])
-        msg = msg["message"]["data"]
+        msg = json.loads(msg)
+        try:
+            msg= msg["data"]
+        except :
+            print(msg)
+            exit()
         operation = msg['operation']
-        start_time = time()
+        #start_time = time()
         if operation == 'submit':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting send")
             self.send(msg)
-            print(f"Time taken for pre_prepare: {time()-start_time}")
+            #print(f"Time taken for pre_prepare: {time()-start_time}")
         elif operation == 'pre-prepare':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting pre-prepare")
             self.pre_prepare(msg)
-            print(f"Time taken for pre_prepare: {time()-start_time}")
+            #print(f"Time taken for pre_prepare: {time()-start_time}")
         elif operation == 'prepare':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting prepare")
             self.prepare(msg)
-            print(f"Time taken for prepare: {time()-start_time}")
+            #print(f"Time taken for prepare: {time()-start_time}")
         elif operation == 'prepare-collect':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting prepare-collect")
             self.prepare_collect(msg)
-            print(f"Time taken for prepare_collect: {time()-start_time}")
+            #print(f"Time taken for prepare_collect: {time()-start_time}")
         elif operation == 'commit':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting commit")
             self.commit(msg)
-            print(f"Time taken for commit: {time()-start_time}")
+            #print(f"Time taken for commit: {time()-start_time}")
         elif operation == 'commit-collect':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting commit-collect")
             self.commit_collect(msg)
-            print(f"Time taken for commit_collect: {time()-start_time}")
+            #print(f"Time taken for commit_collect: {time()-start_time}")
         elif operation == 'sync_request':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting sync_request")
             self.make_function_call(self.blockchain,"handle_sync_request",msg)
-            print(f"Time taken for sync_request: {time()-start_time}")
+            #print(f"Time taken for sync_request: {time()-start_time}")
         elif operation == 'sync_reply':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting sync_response")
             self.make_function_call(self.blockchain,"handle_sync_reply",msg)
-            print(f"Time taken for sync_reply: {time()-start_time}")
+            #print(f"Time taken for sync_reply: {time()-start_time}")
         else:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['message']['node_id']} of type {msg['message']['type']}, but no handler found")
@@ -549,7 +552,7 @@ if __name__ == "__main__":
     #define consensus
     consensus = SBFT(node_id,node_type,True)
   
-    rate = Rate(10)
+    rate = Rate(5)
     #start cron
     while not is_shutdown():
         consensus.cron()

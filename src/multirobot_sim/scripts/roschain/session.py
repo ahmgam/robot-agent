@@ -53,7 +53,7 @@ class SessionManager:
             else:
                 response = None
         except Exception as e:
-            print(e)
+            print(e.with_traceback())
             response = None
         if response is None:
             response = FunctionCallResponse(r'{}')
