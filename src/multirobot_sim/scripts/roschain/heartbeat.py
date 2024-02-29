@@ -9,8 +9,7 @@ from rospy import loginfo,ServiceProxy,init_node,Publisher,get_namespace,spin,ge
 from std_msgs.msg import String
 from multirobot_sim.srv import FunctionCall
 from random import randint
-from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
-from multirobot_sim.msg import KeyValueArray
+from messages import MessagePublisher,MessageSubscriber
 class HeartbeatProtocol:
     
     def __init__(self,node_id,node_type,max_delay,DEBUG=True):
@@ -35,9 +34,9 @@ class HeartbeatProtocol:
         self.blockchain.wait_for_service(timeout=100)
         #define heartbeat subscriber
         loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing heartbeat subscriber")
-        self.subscriber = Subscriber(f"/{self.node_id}/heartbeat/heartbeat_handler", KeyValueArray, self.to_queue)
+        self.subscriber = MessageSubscriber(f"/{self.node_id}/heartbeat/heartbeat_handler", self.to_queue)
         #define network 
-        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",KeyValueArray,queue_size=10)
+        self.prepare_message = MessagePublisher(f"/{self.node_id}/network/prepare_message")
         #define last heartbeat
         self.last_call = mktime(datetime.datetime.now().timetuple())+ randint(1,max_delay)
         #get public and private key 
@@ -55,7 +54,7 @@ class HeartbeatProtocol:
         return json.loads(response)
     
     def to_queue(self,data):
-        self.queue.put(keyvaluearray_to_dict(data))
+        self.queue.put(data)
     
     def cron(self):
         #send heartbeat to all nodes
@@ -94,7 +93,7 @@ class HeartbeatProtocol:
             })
         #call network service
         loginfo(f"{self.node_id}: HeartbeatProtocol: Sending heartbeat to {session['node_id']}")
-        self.prepare_message.publish(dict_to_keyvaluearray({"message":msg_data,"type":"heartbeat_request","target":session["node_id"]}))
+        self.prepare_message.publish({"message":msg_data,"type":"heartbeat_request","target":session["node_id"]})
         
            
     def handle_heartbeat(self,message):
@@ -125,7 +124,7 @@ class HeartbeatProtocol:
                 "blockchain_status":self.make_function_call(self.blockchain,"get_sync_info")
             })
         #call network service
-        self.prepare_message.publish(dict_to_keyvaluearray({"message":msg_data,"type":"heartbeat_response","target":session["node_id"]}))
+        self.prepare_message.publish({"message":msg_data,"type":"heartbeat_response","target":session["node_id"]})
  
     def handle_heartbeat_response(self,message):
         #receive heartbeat from node

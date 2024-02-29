@@ -5,8 +5,7 @@ import rospy
 from std_msgs.msg import String
 from paho.mqtt import client as mqtt_client
 from collections import OrderedDict
-from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
-from multirobot_sim.msg import KeyValueArray
+from messages import MessagePublisher,MessageSubscriber
 class MQTTCommunicationModule:
     def __init__(self,node_id,endpoint,port,auth=None,DEBUG=True):
         self.node_id = node_id
@@ -22,8 +21,8 @@ class MQTTCommunicationModule:
         self.counter = 0
         self.timeout = 5
         rospy.loginfo(f"{self.node_id}: Connector:Initializing publisher and subscriber")
-        self.publisher = rospy.Publisher(f"/{self.node_id}/network/handle_message", KeyValueArray, queue_size=10)
-        self.subscriber = rospy.Subscriber(f"/{self.node_id}/connector/send_message", KeyValueArray, self.callback)
+        self.publisher = MessagePublisher(f"/{self.node_id}/network/handle_message")
+        self.subscriber = MessageSubscriber(f"/{self.node_id}/connector/send_message", self.callback)
         self.log_subscriber = rospy.Subscriber(f"/{self.node_id}/connector/send_log", String, self.send_log)
         rospy.loginfo(f"{self.node_id}: Connector:Initialized successfully")
 
@@ -41,12 +40,12 @@ class MQTTCommunicationModule:
             rospy.loginfo(f"{self.node_id}: Error connecting to MQTT: {e}")
             return
     def callback(self, data):
-        self.buffer.put({"data":keyvaluearray_to_dict(data),"type":"outgoing"})
+        self.buffer.put({"data":data,"type":"outgoing"})
 
     def on_message(self, client, userdata, message):
         #self.publisher.publish(json.dumps({"message":json.loads(message.payload.decode("utf-8")),"type":"incoming"}))
         #convert message to json
-        self.buffer.put({"data":dict_to_keyvaluearray(message.payload.decode("utf-8")),"type":"incoming"})
+        self.buffer.put({"data":json.loads(message.payload.decode("utf-8")),"type":"incoming"})
                 
         
 
@@ -123,6 +122,6 @@ if __name__ == '__main__':
         if node.is_available():
             msg = node.get()
             if msg["type"] == "incoming":
-                node.publisher.publish(json.dumps(msg['data']))
+                node.publisher.publish(msg['data'])
             elif msg["type"] == "outgoing":
                 node.send(msg["data"])

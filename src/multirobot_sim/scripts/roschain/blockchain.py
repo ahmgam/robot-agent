@@ -10,8 +10,7 @@ from multirobot_sim.srv import  DatabaseQuery, DatabaseQueryRequest,FunctionCall
 from std_msgs.msg import String
 from queues import OrderedQueue
 from queue import Queue
-from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
-from multirobot_sim.msg import KeyValueArray
+from messages import MessagePublisher,MessageSubscriber
 ####################################
 # Database module
 ###################################
@@ -283,9 +282,9 @@ class Blockchain:
         self.db = Database(self.node_id)
         loginfo(f"{node_id}: blockchain: Initializing publisher & subscriber")
         #init network publisher
-        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",KeyValueArray,queue_size=10)
+        self.prepare_message = MessagePublisher(f"/{self.node_id}/network/prepare_message")
         #init sync handler subscriper
-        self.subscriber = Subscriber(f"/{self.node_id}/blockchain/blockchain_handler",KeyValueArray,self.handle_blockchain)
+        self.subscriber = MessageSubscriber(f"/{self.node_id}/blockchain/blockchain_handler",self.handle_blockchain)
         #define connector log publisher
         self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
         #init sessions
@@ -723,7 +722,6 @@ class Blockchain:
         return blockchain
     
     def handle_blockchain(self,msg):
-        msg = keyvaluearray_to_dict(msg)
         if msg["type"] == "blockchain_data":
             self.queue.put(msg)
         if msg["type"] == "sync_request":

@@ -8,9 +8,7 @@ from std_srvs.srv import Trigger,TriggerResponse
 from std_msgs.msg import String
 from random import choices,randint
 from string import ascii_lowercase
-from messages import dict_to_keyvaluearray
-from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
-from multirobot_sim.msg import KeyValueArray
+from messages import MessagePublisher,MessageSubscriber
 #from multirobot_sim.srv import GetBCRecords,SubmitTransaction
 #####################################
 # RosChain Module
@@ -47,7 +45,7 @@ class RosChain:
         self.blockchain.wait_for_service(timeout=100)
         #define consensus service
         loginfo(f"{self.node_id}: ROSChain:Initializing consensus service")
-        self.consensus = Publisher(f"/{self.node_id}/consensus/consensus_handler",KeyValueArray,queue_size=10)
+        self.consensus = MessagePublisher(f"/{self.node_id}/consensus/consensus_handler")
         loginfo(f"{self.node_id}: RSOChain:Initialized successfully")
         #define connector log publisher
         self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
@@ -87,7 +85,7 @@ class RosChain:
         }
         msg = {"data": payload}
         #add message to the parent queue
-        self.consensus.publish(dict_to_keyvaluearray(msg))
+        self.consensus.publish(msg)
         return SubmitTransactionResponse("Success")
 
     def get_records(self,last_record):

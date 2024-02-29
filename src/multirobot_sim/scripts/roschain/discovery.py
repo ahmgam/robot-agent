@@ -9,8 +9,7 @@ from rospy import loginfo,init_node,Publisher,Subscriber,ServiceProxy,Rate,is_sh
 from multirobot_sim.srv import FunctionCall
 from std_msgs.msg import String
 from queue import Queue
-from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
-from multirobot_sim.msg import KeyValueArray
+from messages import MessagePublisher, MessageSubscriber
 ########################################
 # Discovery protocol
 ########################################
@@ -44,9 +43,9 @@ class DiscoveryProtocol:
         self.sessions.wait_for_service(timeout=100)
         #publisher
         loginfo(f"{self.node_id}: Discovery:Initializing publisher and subscriber")
-        self.publisher = Publisher(f"/{self.node_id}/network/prepare_message", KeyValueArray, queue_size=10)
+        self.publisher = MessagePublisher(f"/{self.node_id}/network/prepare_message")
         #subscriber 
-        self.subscriber = Subscriber(f"/{self.node_id}/discovery/discovery_handler", KeyValueArray, self.put_queue)
+        self.subscriber = MessageSubscriber(f"/{self.node_id}/discovery/discovery_handler", self.put_queue)
         # queue
         self.queue = Queue()
         loginfo(f"{self.node_id}: Discovery:Initialized successfully")
@@ -61,7 +60,7 @@ class DiscoveryProtocol:
             self.discover()
             
     def put_queue(self,message):
-        self.queue.put(keyvaluearray_to_dict(message))
+        self.queue.put(message)
         
     def make_function_call(self,service,function_name,*args):
         args = json.dumps(args)
@@ -145,12 +144,12 @@ class DiscoveryProtocol:
     def discover(self):
         #discover new nodes on the network
         loginfo(f"{self.node_id}: Starting discovery")
-        self.publisher.publish(dict_to_keyvaluearray({
+        self.publisher.publish({
             "target": "all",
             "time":mktime(datetime.datetime.now().timetuple()),
             "message":{ 'pk':EncryptionModule.format_public_key(self.pk)},
             "type": "discovery_request",
-            "signed":True}))
+            "signed":True})
 
     def respond_to_discovery(self,message):
         #respond to discovery requests and send challenge
@@ -180,11 +179,11 @@ class DiscoveryProtocol:
             "pk": EncryptionModule.format_public_key(self.pk)
             }
         #send the message
-        self.publisher.publish(dict_to_keyvaluearray({"target": message.message["node_id"],
+        self.publisher.publish({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
                                       "message": msg_data,
                                       "type": "discovery_response",
-                                      "signed":True}))
+                                      "signed":True})
     
     def verify_discovery(self,message):
         #verify discovery request and send challenge response
@@ -229,11 +228,11 @@ class DiscoveryProtocol:
             "client_challenge_response": client_sol
             }
         #send the message
-        self.publisher.publish(dict_to_keyvaluearray({"target": message.message["node_id"],
+        self.publisher.publish({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
                                       "message": msg_data,
                                       "type": "discovery_verification",
-                                      "signed":True}))
+                                      "signed":True})
  
     def verify_discovery_response(self,message):
         #verify discovery response and add node to the network
@@ -277,12 +276,12 @@ class DiscoveryProtocol:
             "server_challenge_response": server_sol
             }
         #send the message
-        self.publisher.publish(dict_to_keyvaluearray({
+        self.publisher.publish({
             "target": message.message["node_id"],
             "time":mktime(datetime.datetime.now().timetuple()),
             "message": msg_data,
             "type": "discovery_verification_response",
-            "signed":True}))
+            "signed":True})
 
     def approve_discovery(self,message):
         #approve discovery request and send approval response
@@ -331,11 +330,11 @@ class DiscoveryProtocol:
             "test_message": EncryptionModule.encrypt_symmetric("client_test",key)
             }
         #send the message
-        self.publisher.publish(dict_to_keyvaluearray({"target": message.message["node_id"],
+        self.publisher.publish({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
                                       "message": msg_data,
                                       "type": "discovery_approval",
-                                      "signed":True}))
+                                      "signed":True})
             
     def approve_discovery_response(self,message):
         #approve discovery response and add node to the network
@@ -386,12 +385,12 @@ class DiscoveryProtocol:
             "test_message": EncryptionModule.encrypt_symmetric("server_test",key)
             }
         #send the message
-        self.publisher.publish(dict_to_keyvaluearray({
+        self.publisher.publish({
             "target": message.message["node_id"],
             "time":mktime(datetime.datetime.now().timetuple()),
             "message": msg_data,
             "type": "discovery_approval_response",
-            "signed":True}))
+            "signed":True})
         #delay for 1 second
         sleep(1)
         self.make_function_call(self.sessions,"create_connection_session",session_id,session_data)

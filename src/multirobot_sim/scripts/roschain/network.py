@@ -9,8 +9,7 @@ from rospy import Subscriber,Publisher,ROSInterruptException,Service,ServiceProx
 from multirobot_sim.srv import FunctionCall,FunctionCallResponse
 from std_msgs.msg import String
 from time import time
-from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
-from multirobot_sim.msg import KeyValueArray
+from messages import MessagePublisher,MessageSubscriber
 class NetworkInterface:
     
     def __init__(self,node_id,node_type,DEBUG=True):
@@ -44,19 +43,19 @@ class NetworkInterface:
         self.sessions.wait_for_service(timeout=100)
         #define connector subscriber
         loginfo(f"{self.node_id}: NetworkInterface:Initializing connector subscriber")
-        self.subscriber = Subscriber(f"/{self.node_id}/network/handle_message", KeyValueArray, self.to_queue,("handle",))
+        self.subscriber = MessageSubscriber(f"/{self.node_id}/network/handle_message", self.to_queue,("handle",))
         #define network prepaeration service
-        self.prepare_subscriber = Subscriber(f"/{self.node_id}/network/prepare_message", KeyValueArray, self.to_queue,("prepare",))
+        self.prepare_subscriber = MessageSubscriber(f"/{self.node_id}/network/prepare_message", self.to_queue,("prepare",))
         #define connector publisher
-        self.publisher = Publisher(f"/{self.node_id}/connector/send_message", KeyValueArray, queue_size=10)
+        self.publisher = MessagePublisher(f"/{self.node_id}/connector/send_message")
         #define discovery publisher
-        self.discovery_publisher = Publisher(f"/{self.node_id}/discovery/discovery_handler", KeyValueArray, queue_size=10)
+        self.discovery_publisher = MessagePublisher(f"/{self.node_id}/discovery/discovery_handler")
         #define heartbeat publisher
-        self.heartbeat_publisher = Publisher(f"/{self.node_id}/heartbeat/heartbeat_handler", KeyValueArray, queue_size=10)
+        self.heartbeat_publisher = MessagePublisher(f"/{self.node_id}/heartbeat/heartbeat_handler")
         # Define consensus publisher
-        self.consensus_publisher = Publisher(f"/{self.node_id}/consensus/consensus_handler", KeyValueArray, queue_size=10)
+        self.consensus_publisher = MessagePublisher(f"/{self.node_id}/consensus/consensus_handler")
         #Define sync publisher
-        self.sync_publisher = Publisher(f"/{self.node_id}/blockchain/sync_handler", KeyValueArray, queue_size=10)
+        self.sync_publisher = MessagePublisher(f"/{self.node_id}/blockchain/sync_handler")
         #define server
         loginfo(f"{self.node_id}: NetworkInterface:Initializing network service")
         self.server = Service(f"/{self.node_id}/network/call", FunctionCall, self.handle_function_call)
@@ -88,7 +87,7 @@ class NetworkInterface:
         '''
         Add message to queue
         '''        
-        self.queue.put({"type":type[0],"data":keyvaluearray_to_dict(message)})
+        self.queue.put({"type":type[0],"data":message})
      
     def make_function_call(self,service,function_name,*args):
         args = json.dumps(args)
@@ -183,11 +182,11 @@ class NetworkInterface:
         #define target sessions
         if target == "all":
             #prepare message data
-            self.publisher.publish(dict_to_keyvaluearray({
+            self.publisher.publish({
                     "target": 'all',
                     "time":mktime(datetime.datetime.now().timetuple()),
                     "message": msg_payload
-                }))
+                })
         else:
             if target == "all_active":
                 node_ids = self.make_function_call(self.sessions,"get_active_nodes")
@@ -220,31 +219,32 @@ class NetworkInterface:
                         msg_payload["message"] = prepared_message
                     
                 #add message to the queue
-                self.publisher.publish(dict_to_keyvaluearray({
+                self.publisher.publish({
                     "target": node_id,
                     "time":mktime(datetime.datetime.now().timetuple()),
                     "message": msg_payload
-                }))
+                })
   
             
     def handle_message(self, message):
         #check message type
+        #print(message)
         message =self.verify_data(message)
         if not message:
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Invalid message")
+                loginfo(f"{self.node_id}: Invalid message of type {type(message)}")
             return
         #handle message                      
         if message["node_id"]==self.node_id:
             return
         elif str(message["type"]).startswith("discovery"):
-            self.discovery_publisher.publish(dict_to_keyvaluearray(message))
+            self.discovery_publisher.publish(message)
         elif str(message["type"]).startswith("heartbeat"):
-            self.heartbeat_publisher.publish(dict_to_keyvaluearray(message))
+            self.heartbeat_publisher.publish(message)
         elif str(message["type"]).startswith("sync"):
-            self.sync_publisher.publish(dict_to_keyvaluearray(message))
+            self.sync_publisher.publish(message)
         elif message["type"]=="data_exchange":
-            self.consensus_publisher.publish(dict_to_keyvaluearray(message["message"]))
+            self.consensus_publisher.publish(message["message"])
         else:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: unknown message type {message['type']}")
@@ -270,6 +270,7 @@ if __name__ == "__main__":
             #loginfo(f"{network.node_id}: Network: Handling message of type {message['data']['type']}")
             #start_time = time()
             if message["type"] == "handle":
+                print(message["data"])
                 network.handle_message(message["data"])
                 #print(f"Time taken to handle message : {time()-start_time}")
             elif message["type"] == "prepare":
