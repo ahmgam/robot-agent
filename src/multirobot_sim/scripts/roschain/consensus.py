@@ -10,7 +10,8 @@ from rospy import ServiceProxy,Publisher,Subscriber,Service,ROSInterruptExceptio
 from multirobot_sim.srv import FunctionCall,FunctionCallResponse
 from std_msgs.msg import String
 from queue import Queue
-
+from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
+from multirobot_sim.msg import KeyValueArray
 #######################################
 # Consensus protocol SPFT
 #######################################
@@ -47,11 +48,11 @@ class SBFT:
         self.blockchain.wait_for_service(timeout=100)
         #init prepare message 
         loginfo(f"{self.node_id}: SBFT:Initializing publisher and subscriber")
-        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",String,queue_size=10)
+        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",KeyValueArray,queue_size=10)
         #message subscriber 
-        self.subscriber = Subscriber(f"/{self.node_id}/consensus/consensus_handler",String,self.handle_message)
+        self.subscriber = Subscriber(f"/{self.node_id}/consensus/consensus_handler",KeyValueArray,self.handle_message)
         #define blockchain publisher 
-        self.blockchain_publisher = Publisher(f"/{self.node_id}/blockchain/blockchain_handler",String,queue_size=10)
+        self.blockchain_publisher = Publisher(f"/{self.node_id}/blockchain/blockchain_handler",KeyValueArray,queue_size=10)
         # queue
         self.queue = Queue()
         loginfo(f"{self.node_id}: SBFT:Initializing function call service")
@@ -100,15 +101,10 @@ class SBFT:
         #msg = json.loads(msg.data)
         #push message to queue
         #self.queue.put(msg)
-        self.queue.put(msg.data)
+        self.queue.put(keyvaluearray_to_dict(msg))
     def handle(self, msg):
         #handle message
-        msg = json.loads(msg)
-        try:
-            msg= msg["data"]
-        except :
-            print(msg)
-            exit()
+        msg= msg["data"]
         operation = msg['operation']
         #start_time = time()
         if operation == 'submit':
@@ -190,7 +186,7 @@ class SBFT:
         #add signature to message
         msg["signature"] = msg_signature
         #broadcast message to the network
-        self.prepare_message.publish(json.dumps({"message":msg,"type":"data_exchange","target":"all_active"}))
+        self.prepare_message.publish(dict_to_keyvaluearray({"message":msg,"type":"data_exchange","target":"all_active"}))
     
     def pre_prepare(self,msg):
         #handle pre-prepare message
@@ -249,7 +245,7 @@ class SBFT:
             "node_ids":msg['node_ids']
         }
         #send_message
-        self.prepare_message.publish(json.dumps({"message":payload,"type":"data_exchange","target":msg['source']}))
+        self.prepare_message.publish(dict_to_keyvaluearray({"message":payload,"type":"data_exchange","target":msg['source']}))
     
     def prepare(self,msg):
         #handle prepare message
@@ -316,7 +312,7 @@ class SBFT:
         self.views[view_id]["status"] = "prepare"
         self.views[view_id]["last_updated"] = mktime(datetime.datetime.now().timetuple())
         #broadcast message
-        self.prepare_message.publish(json.dumps({"message":payload,"type":"data_exchange","target":"all_active"}))
+        self.prepare_message.publish(dict_to_keyvaluearray({"message":payload,"type":"data_exchange","target":"all_active"}))
         
     
     def prepare_collect(self,msg):
@@ -390,7 +386,7 @@ class SBFT:
         #update view
         self.views[view_id]["status"] = "commit"
         self.views[view_id]["last_updated"] = mktime(datetime.datetime.now().timetuple())
-        self.prepare_message.publish(json.dumps({"message":payload,"type":"data_exchange","target":view["source"]}))
+        self.prepare_message.publish(dict_to_keyvaluearray({"message":payload,"type":"data_exchange","target":view["source"]}))
     def commit(self,msg):
         #handle commit message
         #check if view exists
@@ -453,7 +449,7 @@ class SBFT:
         self.views[view_id]["last_updated"] = mktime(datetime.datetime.now().timetuple())
         #push message to output queue
         try:
-            self.blockchain_publisher.publish(json.dumps({
+            self.blockchain_publisher.publish(dict_to_keyvaluearray({
                 "data":view["message"],
                 "type":"blockchain_data",
                 "source":view["source"],
@@ -464,7 +460,7 @@ class SBFT:
         except Exception as e:
             print(f"{self.node_id}: ERROR : {e}")
         #broadcast message
-        self.prepare_message.publish(json.dumps({"message":payload,"type":"data_exchange","target":"all_active"}))
+        self.prepare_message.publish(dict_to_keyvaluearray({"message":payload,"type":"data_exchange","target":"all_active"}))
         #remove view
         self.views.pop(view_id)
     
@@ -519,7 +515,7 @@ class SBFT:
         self.views[view_id]["status"] = "complete"
         self.views[view_id]["last_updated"] = mktime(datetime.datetime.now().timetuple())
         #push message to output queue
-        self.blockchain_publisher.publish(json.dumps({
+        self.blockchain_publisher.publish(dict_to_keyvaluearray({
             "data":view["message"],
             "type":"blockchain_data",
             "source":view["source"],

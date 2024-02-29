@@ -9,7 +9,8 @@ from rospy import loginfo,init_node,Publisher,Subscriber,ServiceProxy,Rate,is_sh
 from multirobot_sim.srv import FunctionCall
 from std_msgs.msg import String
 from queue import Queue
-
+from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
+from multirobot_sim.msg import KeyValueArray
 ########################################
 # Discovery protocol
 ########################################
@@ -43,9 +44,9 @@ class DiscoveryProtocol:
         self.sessions.wait_for_service(timeout=100)
         #publisher
         loginfo(f"{self.node_id}: Discovery:Initializing publisher and subscriber")
-        self.publisher = Publisher(f"/{self.node_id}/network/prepare_message", String, queue_size=10)
+        self.publisher = Publisher(f"/{self.node_id}/network/prepare_message", KeyValueArray, queue_size=10)
         #subscriber 
-        self.subscriber = Subscriber(f"/{self.node_id}/discovery/discovery_handler", String, self.put_queue)
+        self.subscriber = Subscriber(f"/{self.node_id}/discovery/discovery_handler", KeyValueArray, self.put_queue)
         # queue
         self.queue = Queue()
         loginfo(f"{self.node_id}: Discovery:Initialized successfully")
@@ -60,7 +61,7 @@ class DiscoveryProtocol:
             self.discover()
             
     def put_queue(self,message):
-        self.queue.put(json.loads(message.data))
+        self.queue.put(keyvaluearray_to_dict(message))
         
     def make_function_call(self,service,function_name,*args):
         args = json.dumps(args)
@@ -144,7 +145,7 @@ class DiscoveryProtocol:
     def discover(self):
         #discover new nodes on the network
         loginfo(f"{self.node_id}: Starting discovery")
-        self.publisher.publish(json.dumps({
+        self.publisher.publish(dict_to_keyvaluearray({
             "target": "all",
             "time":mktime(datetime.datetime.now().timetuple()),
             "message":{ 'pk':EncryptionModule.format_public_key(self.pk)},
@@ -179,7 +180,7 @@ class DiscoveryProtocol:
             "pk": EncryptionModule.format_public_key(self.pk)
             }
         #send the message
-        self.publisher.publish(json.dumps({"target": message.message["node_id"],
+        self.publisher.publish(dict_to_keyvaluearray({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
                                       "message": msg_data,
                                       "type": "discovery_response",
@@ -228,7 +229,7 @@ class DiscoveryProtocol:
             "client_challenge_response": client_sol
             }
         #send the message
-        self.publisher.publish(json.dumps({"target": message.message["node_id"],
+        self.publisher.publish(dict_to_keyvaluearray({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
                                       "message": msg_data,
                                       "type": "discovery_verification",
@@ -276,7 +277,7 @@ class DiscoveryProtocol:
             "server_challenge_response": server_sol
             }
         #send the message
-        self.publisher.publish(json.dumps({
+        self.publisher.publish(dict_to_keyvaluearray({
             "target": message.message["node_id"],
             "time":mktime(datetime.datetime.now().timetuple()),
             "message": msg_data,
@@ -330,7 +331,7 @@ class DiscoveryProtocol:
             "test_message": EncryptionModule.encrypt_symmetric("client_test",key)
             }
         #send the message
-        self.publisher.publish(json.dumps({"target": message.message["node_id"],
+        self.publisher.publish(dict_to_keyvaluearray({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
                                       "message": msg_data,
                                       "type": "discovery_approval",
@@ -385,7 +386,7 @@ class DiscoveryProtocol:
             "test_message": EncryptionModule.encrypt_symmetric("server_test",key)
             }
         #send the message
-        self.publisher.publish(json.dumps({
+        self.publisher.publish(dict_to_keyvaluearray({
             "target": message.message["node_id"],
             "time":mktime(datetime.datetime.now().timetuple()),
             "message": msg_data,

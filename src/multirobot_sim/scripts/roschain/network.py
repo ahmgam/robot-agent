@@ -9,6 +9,8 @@ from rospy import Subscriber,Publisher,ROSInterruptException,Service,ServiceProx
 from multirobot_sim.srv import FunctionCall,FunctionCallResponse
 from std_msgs.msg import String
 from time import time
+from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
+from multirobot_sim.msg import KeyValueArray
 class NetworkInterface:
     
     def __init__(self,node_id,node_type,DEBUG=True):
@@ -42,19 +44,19 @@ class NetworkInterface:
         self.sessions.wait_for_service(timeout=100)
         #define connector subscriber
         loginfo(f"{self.node_id}: NetworkInterface:Initializing connector subscriber")
-        self.subscriber = Subscriber(f"/{self.node_id}/network/handle_message", String, self.to_queue,("handle",))
+        self.subscriber = Subscriber(f"/{self.node_id}/network/handle_message", KeyValueArray, self.to_queue,("handle",))
         #define network prepaeration service
-        self.prepare_subscriber = Subscriber(f"/{self.node_id}/network/prepare_message", String, self.to_queue,("prepare",))
+        self.prepare_subscriber = Subscriber(f"/{self.node_id}/network/prepare_message", KeyValueArray, self.to_queue,("prepare",))
         #define connector publisher
-        self.publisher = Publisher(f"/{self.node_id}/connector/send_message", String, queue_size=10)
+        self.publisher = Publisher(f"/{self.node_id}/connector/send_message", KeyValueArray, queue_size=10)
         #define discovery publisher
-        self.discovery_publisher = Publisher(f"/{self.node_id}/discovery/discovery_handler", String, queue_size=10)
+        self.discovery_publisher = Publisher(f"/{self.node_id}/discovery/discovery_handler", KeyValueArray, queue_size=10)
         #define heartbeat publisher
-        self.heartbeat_publisher = Publisher(f"/{self.node_id}/heartbeat/heartbeat_handler", String, queue_size=10)
+        self.heartbeat_publisher = Publisher(f"/{self.node_id}/heartbeat/heartbeat_handler", KeyValueArray, queue_size=10)
         # Define consensus publisher
-        self.consensus_publisher = Publisher(f"/{self.node_id}/consensus/consensus_handler", String, queue_size=10)
+        self.consensus_publisher = Publisher(f"/{self.node_id}/consensus/consensus_handler", KeyValueArray, queue_size=10)
         #Define sync publisher
-        self.sync_publisher = Publisher(f"/{self.node_id}/blockchain/sync_handler", String, queue_size=10)
+        self.sync_publisher = Publisher(f"/{self.node_id}/blockchain/sync_handler", KeyValueArray, queue_size=10)
         #define server
         loginfo(f"{self.node_id}: NetworkInterface:Initializing network service")
         self.server = Service(f"/{self.node_id}/network/call", FunctionCall, self.handle_function_call)
@@ -86,7 +88,7 @@ class NetworkInterface:
         '''
         Add message to queue
         '''        
-        self.queue.put({"type":type[0],"data":json.loads(message.data)})
+        self.queue.put({"type":type[0],"data":keyvaluearray_to_dict(message)})
      
     def make_function_call(self,service,function_name,*args):
         args = json.dumps(args)
@@ -181,7 +183,7 @@ class NetworkInterface:
         #define target sessions
         if target == "all":
             #prepare message data
-            self.publisher.publish(json.dumps({
+            self.publisher.publish(dict_to_keyvaluearray({
                     "target": 'all',
                     "time":mktime(datetime.datetime.now().timetuple()),
                     "message": msg_payload
@@ -218,7 +220,7 @@ class NetworkInterface:
                         msg_payload["message"] = prepared_message
                     
                 #add message to the queue
-                self.publisher.publish(json.dumps({
+                self.publisher.publish(dict_to_keyvaluearray({
                     "target": node_id,
                     "time":mktime(datetime.datetime.now().timetuple()),
                     "message": msg_payload
@@ -236,13 +238,13 @@ class NetworkInterface:
         if message["node_id"]==self.node_id:
             return
         elif str(message["type"]).startswith("discovery"):
-            self.discovery_publisher.publish(json.dumps(message))
+            self.discovery_publisher.publish(dict_to_keyvaluearray(message))
         elif str(message["type"]).startswith("heartbeat"):
-            self.heartbeat_publisher.publish(json.dumps(message))
+            self.heartbeat_publisher.publish(dict_to_keyvaluearray(message))
         elif str(message["type"]).startswith("sync"):
-            self.sync_publisher.publish(json.dumps(message))
+            self.sync_publisher.publish(dict_to_keyvaluearray(message))
         elif message["type"]=="data_exchange":
-            self.consensus_publisher.publish(json.dumps(message["message"]))
+            self.consensus_publisher.publish(dict_to_keyvaluearray(message["message"]))
         else:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: unknown message type {message['type']}")
