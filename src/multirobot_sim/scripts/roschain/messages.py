@@ -174,7 +174,6 @@ Network peer data message format:
 import json
 from collections import OrderedDict
 from rospy import loginfo
-from messages import dict_to_keyvaluearray, keyvaluearray_to_dict
 from multirobot_sim.msg import KeyValueArray,KeyValue
 #########################################
 # Messages 
@@ -262,7 +261,6 @@ class ApprovalResponseMessage(Message):
         super().__init__(data,required_fields=required_fields)
  
  
- 
 def unflatten_json(flat_json, sep='.'):
     unflattened_json = {}
     for compound_key, value in flat_json.items():
@@ -288,13 +286,12 @@ def flatten_json(nested_json, parent_key='', sep='.'):
 
 def pack_key_value_array(src_dict):
     key_value_array = KeyValueArray()
-    kv_list = []
+    #key_value_array = list()
     for key, value in src_dict.items():
         key_value = KeyValue()
         key_value.key = key
-        key_value.value = value
-        kv_list.append(key_value)
-    key_value_array.items = kv_list
+        key_value.value = str(value)
+        key_value_array.items.append(key_value)
     return key_value_array
 
 def unpack_key_value_array(key_value_array):
@@ -321,3 +318,20 @@ def keyvaluearray_to_dict(kv_array):
         loginfo("data must be a KeyValueArray")
         raise TypeError("data must be a KeyValueArray")
     return unflatten_json(unpack_key_value_array(kv_array))
+
+
+        
+from rospy import Subscriber, Publisher
+
+class MessagePublisher(Publisher):
+    def __init__(self, topic, *args, **kwargs):
+        super().__init__(topic,KeyValueArray, *args, **kwargs)
+
+    def publish(self, message):
+        message = dict_to_keyvaluearray(message)
+        super().publish(message)
+        
+class MessageSubscriber(Subscriber):
+    def __init__(self, topic,callback, *args, **kwargs):
+        super().__init__(topic,KeyValueArray, lambda msg,*args:callback(keyvaluearray_to_dict(msg),*args),*args, **kwargs)
+        
