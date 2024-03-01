@@ -155,6 +155,8 @@ class EncryptionModule:
     
     @staticmethod
     def encrypt_symmetric(message,key):
+        if type(message) == dict:
+            message = json.dumps(message)
         f = Fernet(key.encode("ascii"))
         return b64encode(f.encrypt(message.encode("utf-8"))).decode('utf-8')
     

@@ -64,7 +64,7 @@ class RosChain:
         '''
         loginfo(f"{self.node_id}: ROSChain: {self.node_id} is sending message of type {args.table_name}")
         table_name = args.table_name
-        data = args.message
+        data =json.loads(args.message) 
         msg_time = mktime(datetime.datetime.now().timetuple())
         msg_id = ''.join(choices(ascii_lowercase, k=5))
         message = {

@@ -100,6 +100,7 @@ class SBFT:
         #msg = json.loads(msg.data)
         #push message to queue
         #self.queue.put(msg)
+        print(f"Received message of type {type(msg['message'])}")
         self.queue.put(msg)
     def handle(self, msg):
         #handle message
@@ -107,9 +108,7 @@ class SBFT:
         try:
             msg= msg["data"]
         except : 
-            print(type(msg))
-            print(msg)
-            print(session)
+            print(f"error with message with type {type(msg)}: {msg}")
             exit()
         operation = msg['operation']
         #start_time = time()
@@ -545,6 +544,7 @@ if __name__ == "__main__":
         consensus.cron()
         #check queue
         msg = consensus.queue.get()
+        print(f"Processing message of type {type(msg['message'])} ")
         if msg:
             consensus.handle(msg)
         rate.sleep()

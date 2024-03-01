@@ -97,7 +97,6 @@ class NetworkInterface:
             ret_data= None
         else:
             ret_data = json.loads(response.response)
-        print(f"calling {function_name} returned {ret_data}")
         return ret_data
     def verify_data(self,message):
         #check if message has session id
@@ -153,12 +152,15 @@ class NetworkInterface:
             #decrypt message
             try:
                 decrypted_msg = EncryptionModule.decrypt_symmetric(message["message"],session["key"])
+                decrypted_data = json.loads(decrypted_msg)
+                if type(decrypted_data) is not dict:
+                    loginfo(f"{self.node_id}: Invalid message data {decrypted_data}")
             except Exception as e:
                 if self.DEBUG:
                     loginfo(f"{self.node_id}: error in symmetric decryption : {e}")
                 return
             #validate message
-            message["message"] = json.loads(decrypted_msg)       
+            message["message"] = decrypted_data       
             return {
                 "message": message,
                 "session": session
@@ -183,10 +185,10 @@ class NetworkInterface:
 
     def send_message(self,msg_type, target, message,signed=False):
         #prepare message payload
-        msg_data = OrderedDict({
+        msg_data = {
             "timestamp": str(datetime.datetime.now()),
                 "data":message
-                })
+                }
         
         msg_payload = self.__prepare_message(msg_type,msg_data,signed=signed)
         #define target sessions
@@ -198,33 +200,32 @@ class NetworkInterface:
                     "message": msg_payload
                 })
         else:
-            sessions = self.make_function_call(self.sessions,"get_connection_sessions").values()
+            sessions = self.make_function_call(self.sessions,"get_connection_sessions")
+            sessions = {session["node_id"]:session for session in sessions.values()}
             if target == "all_active":
                 pass
             elif type(target) == list:
-                sessions = [session for session in sessions if session["node_id"] in target]
+                sessions = {node_id:sessions.get(node_id) for node_id in target}
             else:
-                sessions = [session for session in sessions if session["node_id"] in target]
+                sessions = {target:sessions.get(target)}
             #iterate over target sessions
-            for session in sessions:
+            for node_id,session in sessions.items():
                 #check if node_id is local node_id 
-                if session["node_id"] == self.node_id:
+                if node_id == self.node_id:
                     continue
                 if session != None and session["approved"]:
-                    #stringify message data
-                    msg_data = json.dumps(msg_data)
                     #encrypt message data
                     prepared_message = EncryptionModule.encrypt_symmetric(msg_data,session["key"])
                     msg_payload["message"] = prepared_message
                     msg_payload["session_id"] = session["session_id"]
                 else:
                     #check if there is discovery session
-                    discovery_session = self.make_function_call(self.sessions,"get_discovery_session",node_id)
-                    if discovery_session:
+                    session = self.make_function_call(self.sessions,"get_discovery_session",node_id)
+                    if session:
                         #stringify message data
                         msg_data = json.dumps(msg_data)
                         #encrypt message data
-                        prepared_message = EncryptionModule.encrypt(msg_data,EncryptionModule.reformat_public_key(discovery_session["pk"]))
+                        prepared_message = EncryptionModule.encrypt(msg_data,EncryptionModule.reformat_public_key(session["pk"]))
                         msg_payload["message"] = prepared_message
                     
                 #add message to the queue

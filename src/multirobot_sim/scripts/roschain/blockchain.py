@@ -771,7 +771,7 @@ class Blockchain:
                 "view_id":view_id,
                 "source":self.node_id
             }
-            self.prepare_message.publish(json.dumps({"message":msg,"target":node_id,"type":"sync_reply"}))
+            self.prepare_message.publish({"message":msg,"target":node_id,"type":"sync_reply"})
  
     def handle_sync_reply(self,msg):
         #check if the view exists
