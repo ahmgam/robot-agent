@@ -103,7 +103,14 @@ class SBFT:
         self.queue.put(msg)
     def handle(self, msg):
         #handle message
-        msg= msg["data"]
+        msg, session = msg["message"], msg.get("session")
+        try:
+            msg= msg["data"]
+        except : 
+            print(type(msg))
+            print(msg)
+            print(session)
+            exit()
         operation = msg['operation']
         #start_time = time()
         if operation == 'submit':
@@ -114,27 +121,27 @@ class SBFT:
         elif operation == 'pre-prepare':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting pre-prepare")
-            self.pre_prepare(msg)
+            self.pre_prepare(msg,session)
             #print(f"Time taken for pre_prepare: {time()-start_time}")
         elif operation == 'prepare':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting prepare")
-            self.prepare(msg)
+            self.prepare(msg,session)
             #print(f"Time taken for prepare: {time()-start_time}")
         elif operation == 'prepare-collect':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting prepare-collect")
-            self.prepare_collect(msg)
+            self.prepare_collect(msg,session)
             #print(f"Time taken for prepare_collect: {time()-start_time}")
         elif operation == 'commit':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting commit")
-            self.commit(msg)
+            self.commit(msg,session)
             #print(f"Time taken for commit: {time()-start_time}")
         elif operation == 'commit-collect':
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting commit-collect")
-            self.commit_collect(msg)
+            self.commit_collect(msg,session)
             #print(f"Time taken for commit_collect: {time()-start_time}")
         elif operation == 'sync_request':
             if self.DEBUG:
@@ -187,7 +194,7 @@ class SBFT:
         #broadcast message to the network
         self.prepare_message.publish({"message":msg,"type":"data_exchange","target":"all_active"})
     
-    def pre_prepare(self,msg):
+    def pre_prepare(self,msg,session):
         #handle pre-prepare message
         #check if view exists
         view_id = msg['view_id']
@@ -195,13 +202,6 @@ class SBFT:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: View is already created")
             return
-        #get the session 
-        try:
-            session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",msg['source'])
-        except Exception as e:
-            print(f"{self.node_id}: ERROR : {e.with_traceback()}")
-            print(msg)
-            exit()
         #verify signature
         msg_signature = msg.pop('signature')
         #stringify the data payload
@@ -246,7 +246,7 @@ class SBFT:
         #send_message
         self.prepare_message.publish({"message":payload,"type":"data_exchange","target":msg['source']})
     
-    def prepare(self,msg):
+    def prepare(self,msg,session):
         #handle prepare message
         #check if view exists
         view_id = msg['view_id']
@@ -257,8 +257,6 @@ class SBFT:
         #get view 
         view = self.views[view_id]
         #loginfo(view)
-        #get session
-        session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",msg['source'])
         #check if node_id is not the source
         #loginfo(session)
         if self.node_id == msg['source']:
@@ -314,7 +312,7 @@ class SBFT:
         self.prepare_message.publish({"message":payload,"type":"data_exchange","target":"all_active"})
         
     
-    def prepare_collect(self,msg):
+    def prepare_collect(self,msg,session):
         #handle prepare-collect message
         #check if view exists
         #loginfo(msg)
@@ -325,8 +323,6 @@ class SBFT:
             return
         #get view 
         view = self.views[view_id]
-        #get session
-        session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",msg['source'])
         #check if node_id is not the source
         if self.node_id == msg['source']:
             if self.DEBUG:
@@ -386,7 +382,7 @@ class SBFT:
         self.views[view_id]["status"] = "commit"
         self.views[view_id]["last_updated"] = mktime(datetime.datetime.now().timetuple())
         self.prepare_message.publish({"message":payload,"type":"data_exchange","target":view["source"]})
-    def commit(self,msg):
+    def commit(self,msg,session):
         #handle commit message
         #check if view exists
         #loginfo(msg)
@@ -397,8 +393,6 @@ class SBFT:
             return
         #get view 
         view = self.views[view_id]
-        #get session
-        session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",msg['source'])
         #check if node_id is not the source
         if self.node_id == msg['source']:
             if self.DEBUG:
@@ -463,7 +457,7 @@ class SBFT:
         #remove view
         self.views.pop(view_id)
     
-    def commit_collect(self,msg):
+    def commit_collect(self,msg,session):
         #handle commit-collect message
         #check if view exists
         view_id = msg['view_id']
@@ -473,8 +467,6 @@ class SBFT:
             return
         #get view 
         view = self.views[view_id]
-        #get session
-        session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",msg['source'])
         #check if node_id is not the source
         if self.node_id == msg['source']:
             if self.DEBUG:

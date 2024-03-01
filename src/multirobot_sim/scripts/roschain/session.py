@@ -55,11 +55,12 @@ class SessionManager:
         except Exception as e:
             print(e.with_traceback())
             response = None
-        if response is None:
+        if response == None:
             response = FunctionCallResponse(r'{}')
         else:
             response = json.dumps(response) if type(response) is not str else response
             response = FunctionCallResponse(response)
+        
         return response
         
     def create_discovery_session(self, node_id, data):

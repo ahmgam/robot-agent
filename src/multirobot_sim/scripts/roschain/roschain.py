@@ -83,7 +83,7 @@ class RosChain:
             "timestamp":msg_time,
             "operation": "submit"
         }
-        msg = {"data": payload}
+        msg = {"message":{"data": payload}}
         #add message to the parent queue
         self.consensus.publish(msg)
         return SubmitTransactionResponse("Success")

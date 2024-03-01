@@ -284,6 +284,26 @@ def flatten_json(nested_json, parent_key='', sep='.'):
     return dict(items)
 
 
+def get_value_type(value):
+    if isinstance(value,int):
+        return "int"
+    elif isinstance(value,float):
+        return "float"
+    elif isinstance(value,bool):
+        return "bool"
+    else:
+        return "str"
+    
+def cast_value_type(value,type):
+    if type == "int":
+        if value in ["True", "False"]:
+            return value == "True"
+        return int(value)
+    elif type == "float":
+        return float(value)
+    else:
+        return str(value)
+    
 def pack_key_value_array(src_dict):
     key_value_array = KeyValueArray()
     #key_value_array = list()
@@ -291,13 +311,14 @@ def pack_key_value_array(src_dict):
         key_value = KeyValue()
         key_value.key = key
         key_value.value = str(value)
+        key_value.type = get_value_type(value)
         key_value_array.items.append(key_value)
     return key_value_array
 
 def unpack_key_value_array(key_value_array):
     dst_dict = {}
     for kv in key_value_array.items:
-        dst_dict[kv.key] = kv.value
+        dst_dict[kv.key] =  cast_value_type(kv.value,kv.type)
     return dst_dict
         
 
@@ -306,7 +327,7 @@ def dict_to_keyvaluearray(data):
     Prepare dictionary for message
     '''
     if not isinstance(data,dict):
-        loginfo("data must be a dictionary")
+        loginfo(f"data must be a dictionary, not {data}")
         raise TypeError("data must be a dictionary")
     return pack_key_value_array(flatten_json(data))
 

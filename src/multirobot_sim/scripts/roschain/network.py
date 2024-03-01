@@ -91,10 +91,14 @@ class NetworkInterface:
      
     def make_function_call(self,service,function_name,*args):
         args = json.dumps(args)
-        response = service(function_name,args).response
+        response = service(function_name,args)
+        
         if response == r"{}":
-            return None
-        return json.loads(response)
+            ret_data= None
+        else:
+            ret_data = json.loads(response.response)
+        print(f"calling {function_name} returned {ret_data}")
+        return ret_data
     def verify_data(self,message):
         #check if message has session id
         if message.get("session_id",'') == "": 
@@ -134,7 +138,10 @@ class NetworkInterface:
                     if self.DEBUG:    
                         loginfo(f"{self.node_id}: signature not verified")
                     return None
-            return message
+            return {
+                "message": message,
+                "session": session
+            }
         else:
             #get session
             session = self.make_function_call(self.sessions,"get_connection_session",message["session_id"])
@@ -152,7 +159,10 @@ class NetworkInterface:
                 return
             #validate message
             message["message"] = json.loads(decrypted_msg)       
-            return message
+            return {
+                "message": message,
+                "session": session
+            }
     
     def __prepare_message(self,msg_type, message,signed=False,session_id=None):
         
@@ -188,19 +198,18 @@ class NetworkInterface:
                     "message": msg_payload
                 })
         else:
+            sessions = self.make_function_call(self.sessions,"get_connection_sessions").values()
             if target == "all_active":
-                node_ids = self.make_function_call(self.sessions,"get_active_nodes")
+                pass
             elif type(target) == list:
-                node_ids = target
+                sessions = [session for session in sessions if session["node_id"] in target]
             else:
-                node_ids = [target]
+                sessions = [session for session in sessions if session["node_id"] in target]
             #iterate over target sessions
-            for node_id in node_ids:
+            for session in sessions:
                 #check if node_id is local node_id 
-                if node_id == self.node_id:
+                if session["node_id"] == self.node_id:
                     continue
-                #get node_ids session 
-                session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",node_id)
                 if session != None and session["approved"]:
                     #stringify message data
                     msg_data = json.dumps(msg_data)
@@ -220,7 +229,7 @@ class NetworkInterface:
                     
                 #add message to the queue
                 self.publisher.publish({
-                    "target": node_id,
+                    "target": session["node_id"],
                     "time":mktime(datetime.datetime.now().timetuple()),
                     "message": msg_payload
                 })
@@ -229,11 +238,13 @@ class NetworkInterface:
     def handle_message(self, message):
         #check message type
         #print(message)
-        message =self.verify_data(message)
-        if not message:
+        verified =self.verify_data(message)
+        if not verified:
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Invalid message of type {type(message)}")
+                loginfo(f"{self.node_id}: Invalid message of type {message}")
             return
+        message= verified["message"]
+        session = verified["session"]
         #handle message                      
         if message["node_id"]==self.node_id:
             return
@@ -244,7 +255,7 @@ class NetworkInterface:
         elif str(message["type"]).startswith("sync"):
             self.sync_publisher.publish(message)
         elif message["type"]=="data_exchange":
-            self.consensus_publisher.publish(message["message"])
+            self.consensus_publisher.publish({"message":message["message"],"session":session})
         else:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: unknown message type {message['type']}")
@@ -270,7 +281,7 @@ if __name__ == "__main__":
             #loginfo(f"{network.node_id}: Network: Handling message of type {message['data']['type']}")
             #start_time = time()
             if message["type"] == "handle":
-                print(message["data"])
+                #print(message["data"])
                 network.handle_message(message["data"])
                 #print(f"Time taken to handle message : {time()-start_time}")
             elif message["type"] == "prepare":
