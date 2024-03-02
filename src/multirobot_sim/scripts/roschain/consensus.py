@@ -100,7 +100,6 @@ class SBFT:
         #msg = json.loads(msg.data)
         #push message to queue
         #self.queue.put(msg)
-        print(f"Received message of type {type(msg['message'])}")
         self.queue.put(msg)
     def handle(self, msg):
         #handle message
@@ -329,6 +328,7 @@ class SBFT:
             return
         #verify signature
         msg_signature = msg.pop('signature')
+        msg_hash = msg.pop('hash')
         #stringify the data payload
         msg_data = json.dumps(msg)
         #verify the message signature
@@ -337,7 +337,7 @@ class SBFT:
                 loginfo(f"{self.node_id}: message signature not verified")
             return None
         #check hash of message
-        if msg["hash"] != view["hash"]:
+        if msg_hash != view["hash"]:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Hash of message does not match")
             return None
@@ -399,6 +399,7 @@ class SBFT:
             return
         #verify signature
         msg_signature = msg.pop('signature')
+        msg_hash = msg.pop('hash')
         #stringify the data payload
         msg_data = json.dumps(msg)
         #verify the message signature
@@ -407,7 +408,7 @@ class SBFT:
                 loginfo(f"{self.node_id}: signature not verified")
             return None
         #check hash of message
-        if msg["hash"]  != view["hash"]:
+        if msg_hash != view["hash"]:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Hash of message does not match")
             return None
@@ -473,6 +474,7 @@ class SBFT:
             return
         #verify signature
         msg_signature = msg.pop('signature')
+        msg_hash = msg.pop('hash')
         #stringify the data payload
         msg_data = json.dumps(msg)
         #verify the message signature
@@ -544,7 +546,6 @@ if __name__ == "__main__":
         consensus.cron()
         #check queue
         msg = consensus.queue.get()
-        print(f"Processing message of type {type(msg['message'])} ")
         if msg:
             consensus.handle(msg)
         rate.sleep()

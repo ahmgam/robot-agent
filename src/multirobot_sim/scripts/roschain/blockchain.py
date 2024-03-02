@@ -686,7 +686,7 @@ class Blockchain:
         else:
             last_record = last_record[0]["combined_hash"]
         number_of_records = self.db.get_last_id("block")
-        return last_record,number_of_records
+        return {"last_record":last_record,"number_of_records":number_of_records}
     
     def get_sync_data(self,end_hash,record_count):
         #get end id
@@ -732,7 +732,8 @@ class Blockchain:
             loginfo(f"{self.node_id}: Unknown message type {msg['type']}")
     def send_sync_request(self):
         #get the sync info
-        last_record,number_of_records = self.get_sync_info()
+        sync_data = self.get_sync_info()
+        last_record,number_of_records = sync_data["last_record"],sync_data["number_of_records"]
         #add sync view
         view_id = EncryptionModule.hash(str(last_record)+str(number_of_records)+str(mktime(datetime.datetime.now().timetuple())))
         self.views[view_id] = {
@@ -751,7 +752,7 @@ class Blockchain:
             "source":self.node_id
         }
         #send the sync request to other nodes
-        self.prepare_message.publish(json.dumps({"message":msg,"target":"all_active","type":"sync_request"}))
+        self.prepare_message.publish({"message":msg,"target":"all_active","type":"sync_request"})
 
     #handle sync request from other nodes
     def handle_sync_request(self,msg):
@@ -812,7 +813,7 @@ class Blockchain:
                     sync_records[f"{id}:{item['combined_hash']}"] = {"score":0,"item":item}
                 sync_records[f"{id}:{item['combined_hash']}"]["score"] += 1
         
-        #loop through the sync records and and delete the ones with the lowest score
+        #loop through the sync records and and delete the ones with thde lowest score
         keys = list(sync_records.keys())
         for key in keys:
             if sync_records[key]["score"] < participating_nodes//2:

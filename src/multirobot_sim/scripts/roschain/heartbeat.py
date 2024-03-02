@@ -113,7 +113,7 @@ class HeartbeatProtocol:
         #self.parent.server.logger.warning(f'table request : {json.dumps(message["message"]["data"])}' )
         self.make_function_call(self.sessions,"update_node_state_table",message["message"]["data"]["state_table"])
         #chcek blockchain status
-        if self.make_function_call(self.blockchain,"check_sync",*message["message"]["data"]["blockchain_status"]) == False:
+        if self.make_function_call(self.blockchain,"check_sync",message["message"]["data"]["blockchain_status"]["last_record"],message["message"]["data"]["blockchain_status"]["number_of_records"]) == False:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Un synced blockchain, sending sync request")
             self.make_function_call(self.blockchain,"send_sync_request")
