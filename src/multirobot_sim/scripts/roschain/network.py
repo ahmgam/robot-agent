@@ -241,8 +241,6 @@ class NetworkInterface:
         #print(message)
         verified =self.verify_data(message)
         if not verified:
-            if self.DEBUG:
-                loginfo(f"{self.node_id}: Invalid message of type {message}")
             return
         message= verified["message"]
         session = verified["session"]
