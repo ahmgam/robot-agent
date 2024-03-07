@@ -511,7 +511,6 @@ class Blockchain:
     def add_entry(self,msg):
         hash = msg["hash"]
         msg = msg["data"]
-        msg["data"]=json.loads(msg["data"])
         log_msg = f"{mktime(datetime.datetime.now().timetuple())},transaction,{msg['msg_id']},{msg['time']}"
         self.log_publisher.publish(log_msg)
         self.buffer.put(msg,msg["time"],hash)
@@ -659,6 +658,7 @@ class Blockchain:
     def check_sync(self,last_conbined_hash, record_count):
         #check if all input is not null 
         if  last_conbined_hash is None or record_count == 0:
+            print("check_sync: last_conbined_hash is None or record_count == 0")
             return True 
    
         #check if last combined hash exists in the blockchain

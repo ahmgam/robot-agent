@@ -16,7 +16,7 @@ from messages import MessagePublisher,MessageSubscriber
 #######################################
 
 class SBFT:
-    def __init__(self,node_id,node_type,DEBUG=False) -> None:
+    def __init__(self,node_id,node_type,timeout_interval,DEBUG=False) -> None:
         #define node id
         self.node_id = node_id
         #define node type
@@ -26,7 +26,7 @@ class SBFT:
         #define views
         self.views = {}
         #define view timeout
-        self.view_timeout = 10
+        self.view_timeout = timeout_interval
         #define node 
         self.node = init_node("consensus",anonymous=True)
         #define function call service
@@ -342,7 +342,6 @@ class SBFT:
         for m in msg["prepare"]:
             #verify signature
             m_signature = m.pop('signature')
-            m_hash = m.pop('hash')
             m_data = json.dumps(m)
             #verify the message signature
             node_state = self.make_function_call(self.sessions,"get_node_state",m['source'])
@@ -351,7 +350,7 @@ class SBFT:
                     loginfo(f"{self.node_id}: signature of {m['source']} not verified")
                 return None
             #check hash of message
-            if m_hash != view["hash"]:
+            if m["hash"] != view["hash"]:
                 if self.DEBUG:
                     loginfo(f"{self.node_id}: Hash of message does not match")
                 return None
@@ -511,18 +510,24 @@ if __name__ == "__main__":
     #get namespace 
     ns = get_namespace()
     try :
-        node_id= get_param(f'{ns}discovery/node_id') # node_name/argsname
+        node_id= get_param(f'{ns}consensus/node_id') # node_name/argsname
         loginfo(f"discovery: Getting node_id argument, and got : {node_id}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : node_id")
     
     try :
-        node_type= get_param(f'{ns}discovery/node_type') # node_name/argsname
-        loginfo(f"discovery: Getting endpoint argument, and got : {node_type}")
+        node_type= get_param(f'{ns}consensus/node_type') # node_name/argsname
+        loginfo(f"discovery: Getting node_type argument, and got : {node_type}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : node_type")
+    
+    try :
+        timeout_interval= get_param(f'{ns}consensus/timeout_interval',10) # node_name/argsname
+        loginfo(f"discovery: Getting timeout_interval argument, and got : {timeout_interval}")
+    except ROSInterruptException:
+        raise ROSInterruptException("Invalid arguments : timeout_interval")
     #define consensus
-    consensus = SBFT(node_id,node_type,True)
+    consensus = SBFT(node_id,node_type,int(timeout_interval),True)
   
     rate = Rate(5)
     #start cron

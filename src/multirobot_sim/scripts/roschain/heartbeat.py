@@ -113,7 +113,9 @@ class HeartbeatProtocol:
         #self.parent.server.logger.warning(f'table request : {json.dumps(message["message"]["data"])}' )
         self.make_function_call(self.sessions,"update_node_state_table",message["message"]["data"]["state_table"])
         #chcek blockchain status
-        if self.make_function_call(self.blockchain,"check_sync",message["message"]["data"]["blockchain_status"]["last_record"],message["message"]["data"]["blockchain_status"]["number_of_records"]) == False:
+        is_synced = self.make_function_call(self.blockchain,"check_sync",message["message"]["data"]["blockchain_status"]["last_record"],message["message"]["data"]["blockchain_status"]["number_of_records"])
+        print(is_synced)
+        if is_synced == "False":
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Un synced blockchain, sending sync request")
             self.make_function_call(self.blockchain,"send_sync_request")
@@ -155,19 +157,19 @@ if __name__ == '__main__':
     ns = get_namespace()
     
     try :
-        node_id= get_param(f'{ns}discovery/node_id') # node_name/argsname
+        node_id= get_param(f'{ns}heartbeat/node_id') # node_name/argsname
         loginfo(f"discovery: Getting node_id argument, and got : {node_id}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : node_id")
     
     try :
-        node_type= get_param(f'{ns}discovery/node_type') # node_name/argsname
+        node_type= get_param(f'{ns}heartbeat/node_type') # node_name/argsname
         loginfo(f"discovery: Getting endpoint argument, and got : {node_type}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : node_type")
     
     try:
-        max_delay = get_param(f'{ns}discovery/max_delay',10)
+        max_delay = get_param(f'{ns}heartbeat/max_delay',10)
         loginfo(f"discovery: Getting max_delay argument, and got : {max_delay}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : max_delay")

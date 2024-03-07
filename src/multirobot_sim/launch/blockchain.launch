@@ -9,6 +9,7 @@
     <arg name="update_interval" default="$(env UPDATE_INTERVAL)"/>
     <arg name="max_delay" default="10.0"/>
     <arg name="schema" default="$(arg base_directory)/schema/schema.sql"/>
+    <arg name="timeout_interval" default="10.0"/>
 
   <!--Robot namespace-->
     <group ns="$(arg node_id)">
@@ -20,6 +21,7 @@
         <node pkg="multirobot_sim" type="consensus.py" name="consensus" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
             <param name="node_type" value="$(arg node_type)"/>
+            <param name="timeout_interval" value="$(arg timeout_interval)"/>
         </node>   
         <node pkg="multirobot_sim" type="network.py" name="network" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
