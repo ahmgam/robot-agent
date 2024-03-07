@@ -251,6 +251,11 @@ class SBFT:
             return
         #get view 
         view = self.views[view_id]
+        #check if node_id is in the node_ids
+        if self.node_id not in view["node_ids"]:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: Node_id is not in the node_ids")
+            return
         #loginfo(view)
         #check if node_id is not the source
         #loginfo(session)
@@ -314,6 +319,11 @@ class SBFT:
             return
         #get view 
         view = self.views[view_id]
+        #check if node_id is in the node_ids
+        if self.node_id not in view["node_ids"]:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: Node_id is not in the node_ids")
+            return
         #check if node_id is not the source
         if self.node_id == msg['source']:
             if self.DEBUG:
@@ -344,8 +354,8 @@ class SBFT:
             m_signature = m.pop('signature')
             m_data = json.dumps(m)
             #verify the message signature
-            node_state = self.make_function_call(self.sessions,"get_node_state",m['source'])
-            if EncryptionModule.verify(m_data, m_signature, EncryptionModule.reformat_public_key(node_state["pk"])) == False:
+            node_state = view["node_ids"].get(m["source"])
+            if EncryptionModule.verify(m_data, m_signature, EncryptionModule.reformat_public_key(node_state)) == False:
                 if self.DEBUG:
                     loginfo(f"{self.node_id}: signature of {m['source']} not verified")
                 return None
@@ -381,6 +391,11 @@ class SBFT:
             return
         #get view 
         view = self.views[view_id]
+        #check if node_id is in the node_ids
+        if self.node_id not in view["node_ids"]:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: Node_id is not in the node_ids")
+            return
         #check if node_id is not the source
         if self.node_id == msg['source']:
             if self.DEBUG:
@@ -453,6 +468,11 @@ class SBFT:
             return
         #get view 
         view = self.views[view_id]
+        #check if node_id is in the node_ids
+        if self.node_id not in view["node_ids"]:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: Node_id is not in the node_ids")
+            return
         #check if node_id is not the source
         if self.node_id == msg['source']:
             if self.DEBUG:
