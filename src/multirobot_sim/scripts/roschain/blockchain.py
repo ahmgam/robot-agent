@@ -723,10 +723,16 @@ class Blockchain:
     
     def handle_blockchain(self,msg):
         if msg["type"] == "blockchain_data":
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: received message type {msg['type']}, data element added to blockchain buffer")
             self.queue.put(msg)
         if msg["type"] == "sync_request":
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: received message type {msg['type']}, starting handling_sync_request")
             self.handle_sync_request(msg["message"])
         elif msg["type"] == "sync_reply":
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: received message type {msg['type']}, starting handling_sync_reply")
             self.handle_sync_reply(msg["message"])
         else:
             loginfo(f"{self.node_id}: Unknown message type {msg['type']}")
