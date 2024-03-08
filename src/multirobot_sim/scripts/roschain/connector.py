@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from queue import Queue
 import json
+import pickle
 import rospy
 from std_msgs.msg import String
 from paho.mqtt import client as mqtt_client
@@ -45,7 +46,7 @@ class MQTTCommunicationModule:
     def on_message(self, client, userdata, message):
         #self.publisher.publish(json.dumps({"message":json.loads(message.payload.decode("utf-8")),"type":"incoming"}))
         #convert message to json
-        self.buffer.put({"data":json.loads(message.payload.decode("utf-8")),"type":"incoming"})
+        self.buffer.put({"data":pickle.loads(message.payload),"type":"incoming"})
                 
         
 
@@ -59,7 +60,7 @@ class MQTTCommunicationModule:
             rospy.loginfo(f'{self.node_id}: Connector: Sending message to {message["target"]} with type {message["message"]["type"]}')
         #parse message to string
         if type(message["message"]) == OrderedDict or type(message["message"]) == dict:
-          message["message"] = json.dumps(message["message"])
+          message["message"] = pickle.dumps(message["message"])
         else:
           message["message"] = str(message["message"])
         try:
