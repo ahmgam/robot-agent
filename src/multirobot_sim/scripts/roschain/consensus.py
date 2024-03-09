@@ -54,6 +54,12 @@ class SBFT:
         self.blockchain_publisher = MessagePublisher(f"/{self.node_id}/blockchain/blockchain_handler")
         # queue
         self.queue = Queue()
+        #input queue
+        self.input_queue = Queue()
+        #ongoinng view
+        self.ongoing_view = None
+        #failed queue, handling it is in TODO list
+        self.failed_queue = Queue()
         loginfo(f"{self.node_id}: SBFT:Initializing function call service")
         self.server = Service(f"/{self.node_id}/consensus/call",FunctionCall,self.handle_function_call)
         loginfo(f"{self.node_id}: SBFT:Initialized successfully")
@@ -66,6 +72,12 @@ class SBFT:
                 if self.DEBUG:
                     loginfo(f"{self.node_id}: View {view_id} timed out")
                 self.views.pop(view_id)
+                #check if ongoing view is the same as view_id
+                if self.ongoing_view == view_id:
+                    #put view in failed queue
+                    self.failed_queue.put(view)
+                    loginfo(f"{self.node_id}: View {view_id} added to failed queue")
+                    self.ongoing_view = None
 
     def make_function_call(self,service,function_name,*args):
         args = json.dumps(args)
@@ -112,9 +124,9 @@ class SBFT:
         operation = msg['operation']
         #start_time = time()
         if operation == 'submit':
-            if self.DEBUG:
-                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting send")
-            self.send(msg)
+            
+            self.input_queue.put(msg)
+            #self.send(msg)
             #print(f"Time taken for pre_prepare: {time()-start_time}")
         elif operation == 'pre-prepare':
             if self.DEBUG:
@@ -157,6 +169,8 @@ class SBFT:
             pass
     
     def send(self,msg):
+        if self.DEBUG:
+            loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting send")
         #check message type 
         if not type(msg['message']) in [dict,str]:
             if self.DEBUG:
@@ -164,6 +178,8 @@ class SBFT:
             return
         #create view number 
         view_id = self.generate_view_id()
+        #set as ongoing view
+        self.ongoing_view = view_id
         #get node_ids 
         node_ids = self.make_function_call(self.sessions,"get_node_state_table")
         #create view
@@ -198,7 +214,7 @@ class SBFT:
         view_id = msg['view_id']
         if view_id in self.views.keys():
             if self.DEBUG:
-                loginfo(f"{self.node_id}: View is already created")
+                loginfo(f"{self.node_id}: View is already created in pre-prepare")
             return
         #verify signature
         msg_signature = msg.pop('signature')      
@@ -247,14 +263,14 @@ class SBFT:
         view_id = msg['view_id']
         if view_id not in self.views.keys():
             if self.DEBUG:
-                loginfo(f"{self.node_id}: View is not created")
+                loginfo(f"{self.node_id}: View is not created in prepare")
             return
         #get view 
         view = self.views[view_id]
         #check if node_id is in the node_ids
         if self.node_id not in view["node_ids"]:
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Node_id is not in the node_ids")
+                loginfo(f"{self.node_id}: Node_id is not in the node_ids in prepare")
             return
         #loginfo(view)
         #check if node_id is not the source
@@ -315,7 +331,7 @@ class SBFT:
         view_id = msg['view_id']
         if view_id not in self.views.keys():
             if self.DEBUG:
-                loginfo(f"{self.node_id}: View is not created")
+                loginfo(f"{self.node_id}: View is not created in prepare-collect")
             return
         #get view 
         view = self.views[view_id]
@@ -387,7 +403,7 @@ class SBFT:
         view_id = msg['view_id']
         if view_id not in self.views.keys():
             if self.DEBUG:
-                loginfo(f"{self.node_id}: View is not created")
+                loginfo(f"{self.node_id}: View {view_id} is not created in commit")
             return
         #get view 
         view = self.views[view_id]
@@ -457,6 +473,9 @@ class SBFT:
         self.prepare_message.publish({"message":payload,"type":"data_exchange","target":"all_active"})
         #remove view
         self.views.pop(view_id)
+        #check if ongoing view is the same as view_id
+        if self.ongoing_view == view_id:
+            self.ongoing_view = None
     
     def commit_collect(self,msg,session):
         #handle commit-collect message
@@ -464,7 +483,7 @@ class SBFT:
         view_id = msg['view_id']
         if view_id not in self.views.keys():
             if self.DEBUG:
-                loginfo(f"{self.node_id}: View is not created")
+                loginfo(f"{self.node_id}: View is not created in commit-collect")
             return
         #get view 
         view = self.views[view_id]
@@ -520,6 +539,9 @@ class SBFT:
             })
         #remove view
         self.views.pop(view_id)
+        #check if ongoing view is the same as view_id
+        if self.ongoing_view == view_id:
+            self.ongoing_view = None
     
     #TODO implement view change
     def generate_view_id(self,length=8):
@@ -557,5 +579,11 @@ if __name__ == "__main__":
         msg = consensus.queue.get()
         if msg:
             consensus.handle(msg)
+        #check input queue
+        if not consensus.ongoing_view:
+            msg = consensus.input_queue.get()
+            if msg:
+                
+                consensus.send(msg)
         rate.sleep()
             

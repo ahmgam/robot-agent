@@ -8,7 +8,7 @@ from paho.mqtt import client as mqtt_client
 from collections import OrderedDict
 from messages import MessagePublisher,MessageSubscriber
 class MQTTCommunicationModule:
-    def __init__(self,node_id,endpoint,port,auth=None,DEBUG=True):
+    def __init__(self,node_id,endpoint,port,auth=None,DEBUG=False):
         self.node_id = node_id
         self.endpoint = endpoint
         self.port = port
@@ -65,9 +65,9 @@ class MQTTCommunicationModule:
           message["message"] = str(message["message"])
         try:
             if message["target"] == "all":
-                self.client.publish(f"{self.base_topic}", message["message"])
+                self.client.publish(f"{self.base_topic}", message["message"], qos=2)
             else:
-                self.client.publish(f"{self.base_topic}/{message['target']}", message["message"])
+                self.client.publish(f"{self.base_topic}/{message['target']}", message["message"], qos=2)
             self.counter += 1
             return True
         except Exception as e:
@@ -75,7 +75,7 @@ class MQTTCommunicationModule:
             return False
         
     def send_log(self,message):
-        self.client.publish(f"{self.log_topic}", f"{self.node_id}|{message.data}")
+        self.client.publish(f"{self.log_topic}", f"{self.node_id}|{message.data}",qos=2)
 
     def get(self):
         #self.client.loop()

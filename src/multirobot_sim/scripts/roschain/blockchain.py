@@ -726,7 +726,7 @@ class Blockchain:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: received message type {msg['type']}, data element added to blockchain buffer")
             self.queue.put(msg)
-        if msg["type"] == "sync_request":
+        elif msg["type"] == "sync_request":
             if self.DEBUG:
                 loginfo(f"{self.node_id}: received message type {msg['type']}, starting handling_sync_request")
             self.handle_sync_request(msg["message"])

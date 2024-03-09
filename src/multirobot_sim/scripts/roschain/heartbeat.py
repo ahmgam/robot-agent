@@ -174,7 +174,7 @@ if __name__ == '__main__':
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : max_delay")
     
-    node = HeartbeatProtocol(node_id,node_type,max_delay,DEBUG=True)
+    node = HeartbeatProtocol(node_id,node_type,max_delay,DEBUG=False)
     rate = Rate(10)
     while not is_shutdown():
         #check queue
