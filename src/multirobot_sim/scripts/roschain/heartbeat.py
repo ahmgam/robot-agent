@@ -114,7 +114,6 @@ class HeartbeatProtocol:
         self.make_function_call(self.sessions,"update_node_state_table",message["message"]["data"]["state_table"])
         #chcek blockchain status
         is_synced = self.make_function_call(self.blockchain,"check_sync",message["message"]["data"]["blockchain_status"]["last_record"],message["message"]["data"]["blockchain_status"]["number_of_records"])
-        print(is_synced)
         if is_synced == "False":
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Un synced blockchain, sending sync request")
@@ -148,7 +147,7 @@ class HeartbeatProtocol:
         self.make_function_call(self.sessions,"update_connection_session",message["session_id"],{
             "last_active": mktime(datetime.datetime.now().timetuple())})
         #chcek blockchain status
-        if self.make_function_call(self.blockchain,"check_sync",*message["message"]["data"]["blockchain_status"])== False:
+        if self.make_function_call(self.blockchain,"check_sync",message["message"]["data"]["blockchain_status"]["last_record"],message["message"]["data"]["blockchain_status"]["number_of_records"])== False:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Un synced blockchain, sending sync request")
             self.make_function_call(self.blockchain,"send_sync_request")    
@@ -174,7 +173,7 @@ if __name__ == '__main__':
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : max_delay")
     
-    node = HeartbeatProtocol(node_id,node_type,max_delay,DEBUG=False)
+    node = HeartbeatProtocol(node_id,node_type,max_delay,DEBUG=True)
     rate = Rate(10)
     while not is_shutdown():
         #check queue

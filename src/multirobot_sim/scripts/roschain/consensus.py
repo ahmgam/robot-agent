@@ -569,7 +569,7 @@ if __name__ == "__main__":
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : timeout_interval")
     #define consensus
-    consensus = SBFT(node_id,node_type,int(timeout_interval),True)
+    consensus = SBFT(node_id,node_type,int(timeout_interval),False)
   
     rate = Rate(5)
     #start cron
