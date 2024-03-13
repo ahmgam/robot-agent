@@ -62,6 +62,8 @@ class SBFT:
         self.failed_queue = Queue()
         loginfo(f"{self.node_id}: SBFT:Initializing function call service")
         self.server = Service(f"/{self.node_id}/consensus/call",FunctionCall,self.handle_function_call)
+        #log publisher
+        self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
         loginfo(f"{self.node_id}: SBFT:Initialized successfully")
         
     def cron(self):
@@ -77,6 +79,7 @@ class SBFT:
                     #put view in failed queue
                     self.failed_queue.put(view)
                     loginfo(f"{self.node_id}: View {view_id} added to failed queue")
+                    self.log_publisher.publish(f"{mktime(datetime.datetime.now().timetuple())},failed,{view['message']['msg_id']},{view['timestamp']}")
                     self.ongoing_view = None
 
     def make_function_call(self,service,function_name,*args):

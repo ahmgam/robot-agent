@@ -3,16 +3,18 @@ from multirobot_sim.srv import SubmitTransaction,SubmitTransactionRequest
 from std_srvs.srv import Trigger
 from rospy import ServiceProxy
 import json
-from rospy import ServiceProxy
+from rospy import ServiceProxy, get_param, get_namespace, loginfo,ROSInterruptException,is_shutdown
 from datetime import datetime
 import rospy
 from random import randint
 
 
 class DummyTransactions:
-    def __init__(self,planningAlgorithm=None):
+    def __init__(self,msg_count):
         self.node_id,self.node_type,self.update_interval = self.getParameters()
         rospy.loginfo(f"{self.node_id}: dummy_transactions: Initializing")
+        self.msg_count = int(msg_count)
+        self.count = 0
         self.node = rospy.init_node('dummy_transactions', anonymous=True)
         self.pos_x = None
         self.pos_y = None
@@ -76,18 +78,28 @@ class DummyTransactions:
         self.update_position()
 
         if (datetime.now() - self.last_state_update).total_seconds() > self.update_interval:
+            loginfo(f"prodcasting message no {self.count}")
             self.last_state_update = datetime.now()
             self.submit_node_state() 
+            self.count += 1
 
 
 if __name__ == "__main__":
-    
+    ns = get_namespace()
+    try :
+        msg_count= get_param(f'{ns}roschain/msg_count',100) # node_name/argsname
+        loginfo("ROSCHAIN: Getting msg_count argument, and got : ", msg_count)
 
-    rospy.loginfo("dummy_transactions:Starting the task dummy_transactions node")
-    robot = DummyTransactions()
+    except ROSInterruptException:
+        raise ROSInterruptException("Invalid arguments : msg_count")
+    loginfo("dummy_transactions:Starting the task dummy_transactions node")
+    robot = DummyTransactions(msg_count)
     #define rate
     rate = rospy.Rate(10) # 10hz
     
-    while not rospy.is_shutdown():
-        robot.loop()
+    while not is_shutdown():
+        if robot.count < robot.msg_count:
+            robot.loop()
+        else:
+            exit()
         rate.sleep()
