@@ -510,8 +510,9 @@ class Blockchain:
         
     def add_entry(self,msg):
         hash = msg["hash"]
+        start_time = msg["start_time"]
         msg = msg["data"]
-        log_msg = f"{mktime(datetime.datetime.now().timetuple())},transaction,{msg['msg_id']},{msg['time']}"
+        log_msg = f"{mktime(datetime.datetime.now().timetuple())},transaction,{msg['msg_id']},{msg['time']},{start_time}"
         self.log_publisher.publish(log_msg)
         self.buffer.put(msg,msg["time"],hash)
         if self.buffer.count() > self.block_size+ self.tolerance:

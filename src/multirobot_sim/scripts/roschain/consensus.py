@@ -185,6 +185,8 @@ class SBFT:
         self.ongoing_view = view_id
         #get node_ids 
         node_ids = self.make_function_call(self.sessions,"get_node_state_table")
+        #start time
+        start_time = mktime(datetime.datetime.now().timetuple())
         #create view
         self.views[view_id] = {
             "timestamp":msg['timestamp'],
@@ -196,13 +198,14 @@ class SBFT:
             "view_id":view_id,
             "status":"prepare",
             "hash": EncryptionModule.hash(msg['message']),
-            "node_ids":node_ids
+            "node_ids":node_ids,
+            "start_time":start_time
             }
         #add data to message
         msg["operation"]="pre-prepare"
         msg['view_id'] = view_id
         msg["node_ids"] = node_ids
-        
+        msg["start_time"] = start_time
         #sign message
         
         msg_signature = EncryptionModule.sign(msg,self.sk)
@@ -255,7 +258,8 @@ class SBFT:
             "view_id":view_id,
             "status":"prepare",
             "hash": payload["hash"],
-            "node_ids":msg['node_ids']
+            "node_ids":msg['node_ids'],
+            "start_time":msg['start_time']
         }
         #send_message
         self.prepare_message.publish({"message":payload,"type":"data_exchange","target":msg['source']})
@@ -468,7 +472,8 @@ class SBFT:
                 "source":view["source"],
                 "format":"dict",
                 "time":view["timestamp"],
-                "hash":view["hash"]
+                "hash":view["hash"],
+                "start_time":view["start_time"]
                 })
         except Exception as e:
             print(f"{self.node_id}: ERROR : {e}")
@@ -538,7 +543,8 @@ class SBFT:
             "source":view["source"],
             "format":"dict",
             "time":view["timestamp"],
-            "hash":view["hash"]
+            "hash":view["hash"],
+            "start_time":view["start_time"]
             })
         #remove view
         self.views.pop(view_id)
