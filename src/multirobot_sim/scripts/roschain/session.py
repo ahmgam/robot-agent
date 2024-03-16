@@ -123,6 +123,11 @@ class SessionManager:
     def get_active_nodes(self):
         return [session["node_id"] for session in self.connection_sessions.values() if session["last_active"] > mktime(datetime.now().timetuple())-60]
 
+    def is_conntected(self):
+        if len(self.get_active_nodes()) > 0:
+            return True
+        return False
+    
     def get_active_nodes_with_pk(self):
         return [{session["node_id"]:session["pk"]} for session in self.connection_sessions.values() if session["last_active"] > mktime(datetime.now().timetuple())-60]
     

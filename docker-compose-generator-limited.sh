@@ -3,7 +3,7 @@
 # Read the number of services from input
 read -p "Enter the number of services: " n
 read -p "Enter the number of cores per service: " cores
-
+read -p "Enter the min number of connected robots to start: " min_nodes_num
 # Docker Compose file name
 compose_file="docker-compose.yml"
 echo "version: '3.7'" >> $compose_file
@@ -31,6 +31,7 @@ do
       - MQTT_PORT=1883
       - SECRET=lkfpoewrvcmlsdjfjehf
       - UPDATE_INTERVAL=5
+      - MIN_NODES_NUM=$min_nodes_num
     volumes:
       - ./robots/$service_name/files:/robot_ws/src/multirobot_sim/files
       - ./robots/schema:/robot_ws/src/multirobot_sim/schema

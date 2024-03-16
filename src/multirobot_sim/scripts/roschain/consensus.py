@@ -16,7 +16,7 @@ from messages import MessagePublisher,MessageSubscriber
 #######################################
 
 class SBFT:
-    def __init__(self,node_id,node_type,timeout_interval,DEBUG=False) -> None:
+    def __init__(self,node_id,node_type,timeout_interval,min_nodes_num,DEBUG=False) -> None:
         #define node id
         self.node_id = node_id
         #define node type
@@ -29,6 +29,8 @@ class SBFT:
         self.view_timeout = timeout_interval
         #define node 
         self.node = init_node("consensus",anonymous=True)
+        #define min nodes num
+        self.min_nodes_num = min_nodes_num
         #define function call service
         #define key store proxy
         loginfo(f"{self.node_id}: SBFT:Initializing key store service")
@@ -577,8 +579,14 @@ if __name__ == "__main__":
         loginfo(f"discovery: Getting timeout_interval argument, and got : {timeout_interval}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : timeout_interval")
+    
+    try :
+        min_nodes_num= get_param(f'{ns}consensus/min_nodes_num',1) # node_name/argsname
+        loginfo(f"discovery: Getting min_nodes_num argument, and got : {min_nodes_num}")
+    except ROSInterruptException:
+        raise ROSInterruptException("Invalid arguments : min_nodes_num")
     #define consensus
-    consensus = SBFT(node_id,node_type,int(timeout_interval),False)
+    consensus = SBFT(node_id,node_type,int(timeout_interval),int(min_nodes_num),True)
   
     rate = Rate(5)
     #start cron
@@ -590,9 +598,12 @@ if __name__ == "__main__":
             consensus.handle(msg)
         #check input queue
         if not consensus.ongoing_view:
-            msg = consensus.input_queue.get()
-            if msg:
-                
-                consensus.send(msg)
+            if not consensus.input_queue.empty():
+                is_connected =len(consensus.make_function_call(consensus.sessions,"get_active_nodes")) >= consensus.min_nodes_num
+                #consensus.log_publisher.publish(f"{consensus.node_id}:{mktime(datetime.datetime.now().timetuple())},connected,{is_connected}")
+                if is_connected:
+                    msg = consensus.input_queue.get()
+                    if msg:
+                        consensus.send(msg)
         rate.sleep()
             
