@@ -10,7 +10,7 @@ from multirobot_sim.srv import  DatabaseQuery, DatabaseQueryRequest,FunctionCall
 from std_msgs.msg import String
 from queues import OrderedQueue
 from queue import Queue
-
+from messages import MessagePublisher,MessageSubscriber
 ####################################
 # Database module
 ###################################
@@ -20,8 +20,8 @@ class Database (object):
     def __init__(self,node_id):
         #self.working = False
         self.node_id = node_id
-        self.query_client = ServiceProxy(f"{self.node_id}/query", DatabaseQuery)
-        self.query_client.wait_for_service()
+        self.query_client = ServiceProxy(f"database/query", DatabaseQuery)
+        self.query_client.wait_for_service(timeout=100)
         self.tabels = self.__get_db_meta()
         
 
@@ -266,28 +266,6 @@ class Blockchain:
         self.secret = secret
         #base directory
         self.base_dir = base_dir
-        loginfo(f"{node_id}: Blockchain: Initializing")
-        node = init_node("blochchain",anonymous=True)
-        #define blockchain service
-        self.server = Service(f"/{self.node_id}/blockchain/call",FunctionCall,self.handle_function_call)
-        # define database manager
-        loginfo(f"{self.node_id}: Blockchain:Initializing database proxy")
-        self.db = Database(self.node_id)
-        loginfo(f"{node_id}: blockchain: Initializing publisher & subscriber")
-        #init network publisher
-        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",String,queue_size=10)
-        #init sync handler subscriper
-        self.subscriber = Subscriber(f"/{self.node_id}/blockchain/blockchain_handler",String,self.handle_blockchain)
-        #define connector log publisher
-        self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
-        #init sessions
-        loginfo(f"{self.node_id}: Blockchain:Initializing database proxy")
-        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call",FunctionCall,True)
-        self.sessions.wait_for_service()
-        # create tables
-        self.create_tables()
-        # define queue for storing data
-        self.genesis_block()
         #sync timeout
         self.sync_timeout = 10
         #sync views
@@ -297,8 +275,29 @@ class Blockchain:
         #buffer 
         self.buffer = OrderedQueue(self.base_dir)
         self.buffer.load()
+        loginfo(f"{node_id}: Blockchain: Initializing")
+        node = init_node("blochchain",anonymous=True)
+        # define database manager
+        loginfo(f"{self.node_id}: Blockchain:Initializing database proxy")
+        self.db = Database(self.node_id)
+        loginfo(f"{node_id}: blockchain: Initializing publisher & subscriber")
+        #init network publisher
+        self.prepare_message = MessagePublisher(f"/{self.node_id}/network/prepare_message")
+        #init sync handler subscriper
+        self.subscriber = MessageSubscriber(f"/{self.node_id}/blockchain/blockchain_handler",self.handle_blockchain)
+        #define connector log publisher
+        self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
+        #init sessions
+        loginfo(f"{self.node_id}: Blockchain:Initializing database proxy")
+        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call",FunctionCall,True)
+        self.sessions.wait_for_service(timeout=100)
+        # create tables
+        self.create_tables()
+        # define queue for storing data
+        self.genesis_block()
+        #define blockchain service
+        self.server = Service(f"/{self.node_id}/blockchain/call",FunctionCall,self.handle_function_call)
         loginfo(f"{self.node_id}: Blockchain:Initialized successfully")
-        self.last_tx = self.get_last_committed_block()
         
         
     def get_last_committed_block(self):
@@ -496,7 +495,7 @@ class Blockchain:
         #
         #sending log info 
         time_now = mktime(datetime.datetime.now().timetuple())
-        log_msg = f"{time_now},block,{time_now}"
+        log_msg = f"{time_now},block,{last_block_id+1}"
         self.log_publisher.publish(log_msg)
         
         #add the transaction to the blockchain
@@ -511,9 +510,9 @@ class Blockchain:
         
     def add_entry(self,msg):
         hash = msg["hash"]
+        start_time = msg["start_time"]
         msg = msg["data"]
-        msg["data"]=json.loads(msg["data"])
-        log_msg = f"{mktime(datetime.datetime.now().timetuple())},transaction,{msg['time']}"
+        log_msg = f"{mktime(datetime.datetime.now().timetuple())},transaction,{msg['msg_id']},{msg['time']},{start_time}"
         self.log_publisher.publish(log_msg)
         self.buffer.put(msg,msg["time"],hash)
         if self.buffer.count() > self.block_size+ self.tolerance:
@@ -660,6 +659,7 @@ class Blockchain:
     def check_sync(self,last_conbined_hash, record_count):
         #check if all input is not null 
         if  last_conbined_hash is None or record_count == 0:
+            print("check_sync: last_conbined_hash is None or record_count == 0")
             return True 
    
         #check if last combined hash exists in the blockchain
@@ -687,7 +687,7 @@ class Blockchain:
         else:
             last_record = last_record[0]["combined_hash"]
         number_of_records = self.db.get_last_id("block")
-        return last_record,number_of_records
+        return {"last_record":last_record,"number_of_records":number_of_records}
     
     def get_sync_data(self,end_hash,record_count):
         #get end id
@@ -723,18 +723,24 @@ class Blockchain:
         return blockchain
     
     def handle_blockchain(self,msg):
-        msg = json.loads(msg.data)
         if msg["type"] == "blockchain_data":
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: received message type {msg['type']}, data element added to blockchain buffer")
             self.queue.put(msg)
-        if msg["type"] == "sync_request":
+        elif msg["type"] == "sync_request":
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: received message type {msg['type']}, starting handling_sync_request")
             self.handle_sync_request(msg["message"])
         elif msg["type"] == "sync_reply":
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: received message type {msg['type']}, starting handling_sync_reply")
             self.handle_sync_reply(msg["message"])
         else:
             loginfo(f"{self.node_id}: Unknown message type {msg['type']}")
     def send_sync_request(self):
         #get the sync info
-        last_record,number_of_records = self.get_sync_info()
+        sync_data = self.get_sync_info()
+        last_record,number_of_records = sync_data["last_record"],sync_data["number_of_records"]
         #add sync view
         view_id = EncryptionModule.hash(str(last_record)+str(number_of_records)+str(mktime(datetime.datetime.now().timetuple())))
         self.views[view_id] = {
@@ -753,7 +759,7 @@ class Blockchain:
             "source":self.node_id
         }
         #send the sync request to other nodes
-        self.prepare_message.publish(json.dumps({"message":msg,"target":"all_active","type":"sync_request"}))
+        self.prepare_message.publish({"message":msg,"target":"all_active","type":"sync_request"})
 
     #handle sync request from other nodes
     def handle_sync_request(self,msg):
@@ -773,7 +779,7 @@ class Blockchain:
                 "view_id":view_id,
                 "source":self.node_id
             }
-            self.prepare_message.publish(json.dumps({"message":msg,"target":node_id,"type":"sync_reply"}))
+            self.prepare_message.publish({"message":msg,"target":node_id,"type":"sync_reply"})
  
     def handle_sync_reply(self,msg):
         #check if the view exists
@@ -814,7 +820,7 @@ class Blockchain:
                     sync_records[f"{id}:{item['combined_hash']}"] = {"score":0,"item":item}
                 sync_records[f"{id}:{item['combined_hash']}"]["score"] += 1
         
-        #loop through the sync records and and delete the ones with the lowest score
+        #loop through the sync records and and delete the ones with thde lowest score
         keys = list(sync_records.keys())
         for key in keys:
             if sync_records[key]["score"] < participating_nodes//2:

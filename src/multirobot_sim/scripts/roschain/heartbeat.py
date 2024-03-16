@@ -9,6 +9,7 @@ from rospy import loginfo,ServiceProxy,init_node,Publisher,get_namespace,spin,ge
 from std_msgs.msg import String
 from multirobot_sim.srv import FunctionCall
 from random import randint
+from messages import MessagePublisher,MessageSubscriber
 class HeartbeatProtocol:
     
     def __init__(self,node_id,node_type,max_delay,DEBUG=True):
@@ -19,23 +20,23 @@ class HeartbeatProtocol:
         self.heartbeat_interval = 5
         #define node
         self.node = init_node("heartbeat_protocol", anonymous=True)
-        #define heartbeat subscriber
-        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing heartbeat subscriber")
-        self.subscriber = Subscriber(f"/{self.node_id}/heartbeat/heartbeat_handler", String, self.to_queue)
-        #define network 
-        self.prepare_message = Publisher(f"/{self.node_id}/network/prepare_message",String,queue_size=10)
-        #define sessions
-        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing sessions service")
-        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
-        self.sessions.wait_for_service()
-        #define blockchain
-        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing blockchain service")
-        self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call", FunctionCall,True)
-        self.blockchain.wait_for_service()
         #define key store proxy
         loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service()
+        self.key_store.wait_for_service(timeout=100)
+        #define sessions
+        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing sessions service")
+        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
+        self.sessions.wait_for_service(timeout=100)
+        #define blockchain
+        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing blockchain service")
+        self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call", FunctionCall,True)
+        self.blockchain.wait_for_service(timeout=100)
+        #define heartbeat subscriber
+        loginfo(f"{self.node_id}: HeartbeatProtocol:Initializing heartbeat subscriber")
+        self.subscriber = MessageSubscriber(f"/{self.node_id}/heartbeat/heartbeat_handler", self.to_queue)
+        #define network 
+        self.prepare_message = MessagePublisher(f"/{self.node_id}/network/prepare_message")
         #define last heartbeat
         self.last_call = mktime(datetime.datetime.now().timetuple())+ randint(1,max_delay)
         #get public and private key 
@@ -53,7 +54,7 @@ class HeartbeatProtocol:
         return json.loads(response)
     
     def to_queue(self,data):
-        self.queue.put(json.loads(data.data))
+        self.queue.put(data)
     
     def cron(self):
         #send heartbeat to all nodes
@@ -92,7 +93,7 @@ class HeartbeatProtocol:
             })
         #call network service
         loginfo(f"{self.node_id}: HeartbeatProtocol: Sending heartbeat to {session['node_id']}")
-        self.prepare_message.publish(json.dumps({"message":msg_data,"type":"heartbeat_request","target":session["node_id"]}))
+        self.prepare_message.publish({"message":msg_data,"type":"heartbeat_request","target":session["node_id"]})
         
            
     def handle_heartbeat(self,message):
@@ -112,7 +113,8 @@ class HeartbeatProtocol:
         #self.parent.server.logger.warning(f'table request : {json.dumps(message["message"]["data"])}' )
         self.make_function_call(self.sessions,"update_node_state_table",message["message"]["data"]["state_table"])
         #chcek blockchain status
-        if self.make_function_call(self.blockchain,"check_sync",*message["message"]["data"]["blockchain_status"]) == False:
+        is_synced = self.make_function_call(self.blockchain,"check_sync",message["message"]["data"]["blockchain_status"]["last_record"],message["message"]["data"]["blockchain_status"]["number_of_records"])
+        if is_synced == "False":
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Un synced blockchain, sending sync request")
             self.make_function_call(self.blockchain,"send_sync_request")
@@ -123,7 +125,7 @@ class HeartbeatProtocol:
                 "blockchain_status":self.make_function_call(self.blockchain,"get_sync_info")
             })
         #call network service
-        self.prepare_message.publish(json.dumps({"message":msg_data,"type":"heartbeat_response","target":session["node_id"]}))
+        self.prepare_message.publish({"message":msg_data,"type":"heartbeat_response","target":session["node_id"]})
  
     def handle_heartbeat_response(self,message):
         #receive heartbeat from node
@@ -145,7 +147,7 @@ class HeartbeatProtocol:
         self.make_function_call(self.sessions,"update_connection_session",message["session_id"],{
             "last_active": mktime(datetime.datetime.now().timetuple())})
         #chcek blockchain status
-        if self.make_function_call(self.blockchain,"check_sync",*message["message"]["data"]["blockchain_status"])== False:
+        if self.make_function_call(self.blockchain,"check_sync",message["message"]["data"]["blockchain_status"]["last_record"],message["message"]["data"]["blockchain_status"]["number_of_records"])== False:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Un synced blockchain, sending sync request")
             self.make_function_call(self.blockchain,"send_sync_request")    
@@ -154,19 +156,19 @@ if __name__ == '__main__':
     ns = get_namespace()
     
     try :
-        node_id= get_param(f'{ns}discovery/node_id') # node_name/argsname
+        node_id= get_param(f'{ns}heartbeat/node_id') # node_name/argsname
         loginfo(f"discovery: Getting node_id argument, and got : {node_id}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : node_id")
     
     try :
-        node_type= get_param(f'{ns}discovery/node_type') # node_name/argsname
+        node_type= get_param(f'{ns}heartbeat/node_type') # node_name/argsname
         loginfo(f"discovery: Getting endpoint argument, and got : {node_type}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : node_type")
     
     try:
-        max_delay = get_param(f'{ns}discovery/max_delay',10)
+        max_delay = get_param(f'{ns}heartbeat/max_delay',10)
         loginfo(f"discovery: Getting max_delay argument, and got : {max_delay}")
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : max_delay")

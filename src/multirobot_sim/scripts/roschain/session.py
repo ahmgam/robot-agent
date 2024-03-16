@@ -15,18 +15,19 @@ class SessionManager:
         self.discovery_sessions =OrderedDict()
         self.connection_sessions = OrderedDict()
         self.node = rospy.init_node("session_manager", anonymous=True)
-        rospy.loginfo(f"{self.node_id}: SessionManager:Initializing sessions service")
-        self.server = rospy.Service(f"/{self.node_id}/sessions/call", FunctionCall, self.handle_function_call)
+        
         #define key store proxy
         rospy.loginfo(f"{self.node_id}: Discovery:Initializing key store service")
         self.key_store = rospy.ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service()
+        self.key_store.wait_for_service(timeout=100)
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk = keys["pk"]
         self.sk = keys["sk"]
         self.node_states = OrderedDict({self.node_id:{"pk":self.pk,"last_active":mktime(datetime.now().timetuple())}})
         self.refresh_node_state_table()
+        rospy.loginfo(f"{self.node_id}: SessionManager:Initializing sessions service")
+        self.server = rospy.Service(f"/{self.node_id}/sessions/call", FunctionCall, self.handle_function_call)
         rospy.loginfo(f"{self.node_id}: SessionManager:Initialized successfully")
         
     def make_function_call(self,service,function_name,*args):
@@ -43,18 +44,23 @@ class SessionManager:
         if type(args) is not list:
             args = [args]
         #call function
-        if hasattr(self,function_name):
-            if len(args) == 0:
-                response = getattr(self,function_name)()
+        try:
+            if hasattr(self,function_name):
+                if len(args) == 0:
+                    response = getattr(self,function_name)()
+                else:
+                    response = getattr(self,function_name)(*args)
             else:
-                response = getattr(self,function_name)(*args)
-        else:
+                response = None
+        except Exception as e:
+            print(e.with_traceback())
             response = None
-        if response is None:
+        if response == None:
             response = FunctionCallResponse(r'{}')
         else:
             response = json.dumps(response) if type(response) is not str else response
             response = FunctionCallResponse(response)
+        
         return response
         
     def create_discovery_session(self, node_id, data):
@@ -117,6 +123,11 @@ class SessionManager:
     def get_active_nodes(self):
         return [session["node_id"] for session in self.connection_sessions.values() if session["last_active"] > mktime(datetime.now().timetuple())-60]
 
+    def is_conntected(self):
+        if len(self.get_active_nodes()) > 0:
+            return True
+        return False
+    
     def get_active_nodes_with_pk(self):
         return [{session["node_id"]:session["pk"]} for session in self.connection_sessions.values() if session["last_active"] > mktime(datetime.now().timetuple())-60]
     

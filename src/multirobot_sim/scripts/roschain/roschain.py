@@ -6,7 +6,9 @@ from time import mktime
 from multirobot_sim.srv import GetBCRecords,SubmitTransaction,GetBCRecordsResponse,SubmitTransactionResponse,FunctionCall
 from std_srvs.srv import Trigger,TriggerResponse
 from std_msgs.msg import String
-
+from random import choices,randint
+from string import ascii_lowercase
+from messages import MessagePublisher,MessageSubscriber
 #from multirobot_sim.srv import GetBCRecords,SubmitTransaction
 #####################################
 # RosChain Module
@@ -40,11 +42,10 @@ class RosChain:
         #define blockchain service proxy 
         loginfo(f"{self.node_id}: ROSChain:Initializing blockchain service")
         self.blockchain = ServiceProxy(f"/{self.node_id}/blockchain/call", FunctionCall)
-        self.blockchain.wait_for_service()
+        self.blockchain.wait_for_service(timeout=100)
         #define consensus service
         loginfo(f"{self.node_id}: ROSChain:Initializing consensus service")
-        self.consensus = ServiceProxy(f"/{self.node_id}/consensus/call", FunctionCall)
-        self.consensus.wait_for_service()
+        self.consensus = MessagePublisher(f"/{self.node_id}/consensus/consensus_handler")
         loginfo(f"{self.node_id}: RSOChain:Initialized successfully")
         #define connector log publisher
         self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
@@ -63,24 +64,28 @@ class RosChain:
         '''
         loginfo(f"{self.node_id}: ROSChain: {self.node_id} is sending message of type {args.table_name}")
         table_name = args.table_name
-        data = args.message
+        data =json.loads(args.message) 
         msg_time = mktime(datetime.datetime.now().timetuple())
+        msg_id = ''.join(choices(ascii_lowercase, k=5))
         message = {
             "table_name":table_name,
             "data":data,
-            "time":msg_time
+            "time":msg_time,
+            "msg_id":msg_id
             #"time":datetime.datetime.fromtimestamp(msg_time).strftime("%Y-%m-%d %H:%M:%S") 
         }
-        log_msg = f"{msg_time},msg,{msg_time}"
-        self.log_publisher.publish(log_msg)
+        #log_msg = f"{msg_time},msg,{msg_id}"
+        #self.log_publisher.publish(log_msg)
         #payload 
         payload ={
             "message":message,
             "source":self.node_id,
-            "timestamp":msg_time
+            "timestamp":msg_time,
+            "operation": "submit"
         }
+        msg = {"message":{"data": payload}}
         #add message to the parent queue
-        self.make_function_call(self.consensus,"send",payload)
+        self.consensus.publish(msg)
         return SubmitTransactionResponse("Success")
 
     def get_records(self,last_record):

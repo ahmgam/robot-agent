@@ -8,7 +8,8 @@ from time import mktime
 from rospy import Subscriber,Publisher,ROSInterruptException,Service,ServiceProxy,Rate,init_node,get_namespace,get_param,is_shutdown
 from multirobot_sim.srv import FunctionCall,FunctionCallResponse
 from std_msgs.msg import String
-
+from time import time
+from messages import MessagePublisher,MessageSubscriber
 class NetworkInterface:
     
     def __init__(self,node_id,node_type,DEBUG=True):
@@ -27,37 +28,37 @@ class NetworkInterface:
         self.heartbeat_interval = 5
         #init node
         self.node = init_node("network_interface", anonymous=True)
-        #define server
-        loginfo(f"{self.node_id}: NetworkInterface:Initializing network service")
-        self.server = Service(f"/{self.node_id}/network/call", FunctionCall, self.handle_function_call)
         #define queue
         self.queue = Queue()
-        #define connector subscriber
-        loginfo(f"{self.node_id}: NetworkInterface:Initializing connector subscriber")
-        self.subscriber = Subscriber(f"/{self.node_id}/network/handle_message", String, self.to_queue,("handle",))
-        #define network prepaeration service
-        self.prepare_subscriber = Subscriber(f"/{self.node_id}/network/prepare_message", String, self.to_queue,("prepare",))
-        #define connector publisher
-        self.publisher = Publisher(f"/{self.node_id}/connector/send_message", String, queue_size=10)
-        #define discovery publisher
-        self.discovery_publisher = Publisher(f"/{self.node_id}/discovery/discovery_handler", String, queue_size=10)
-        #define heartbeat publisher
-        self.heartbeat_publisher = Publisher(f"/{self.node_id}/heartbeat/heartbeat_handler", String, queue_size=10)
-        # Define consensus publisher
-        self.consensus_publisher = Publisher(f"/{self.node_id}/consensus/consensus_handler", String, queue_size=10)
-        #Define sync publisher
-        self.sync_publisher = Publisher(f"/{self.node_id}/blockchain/sync_handler", String, queue_size=10)
-        #define sessions service proxy
-        loginfo(f"{self.node_id}: NetworkInterface:Initializing sessions service")
-        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
-        self.sessions.wait_for_service()
         #define key store proxy
         loginfo(f"{self.node_id}: NetworkInterface:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
-        self.key_store.wait_for_service()
+        self.key_store.wait_for_service(timeout=100)
         #get public and private key 
         keys  = self.make_function_call(self.key_store,"get_rsa_key")
         self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
+        #define sessions service proxy
+        loginfo(f"{self.node_id}: NetworkInterface:Initializing sessions service")
+        self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
+        self.sessions.wait_for_service(timeout=100)
+        #define connector subscriber
+        loginfo(f"{self.node_id}: NetworkInterface:Initializing connector subscriber")
+        self.subscriber = MessageSubscriber(f"/{self.node_id}/network/handle_message", self.to_queue,("handle",))
+        #define network prepaeration service
+        self.prepare_subscriber = MessageSubscriber(f"/{self.node_id}/network/prepare_message", self.to_queue,("prepare",))
+        #define connector publisher
+        self.publisher = MessagePublisher(f"/{self.node_id}/connector/send_message")
+        #define discovery publisher
+        self.discovery_publisher = MessagePublisher(f"/{self.node_id}/discovery/discovery_handler")
+        #define heartbeat publisher
+        self.heartbeat_publisher = MessagePublisher(f"/{self.node_id}/heartbeat/heartbeat_handler")
+        # Define consensus publisher
+        self.consensus_publisher = MessagePublisher(f"/{self.node_id}/consensus/consensus_handler")
+        #Define sync publisher
+        self.sync_publisher = MessagePublisher(f"/{self.node_id}/blockchain/sync_handler")
+        #define server
+        loginfo(f"{self.node_id}: NetworkInterface:Initializing network service")
+        self.server = Service(f"/{self.node_id}/network/call", FunctionCall, self.handle_function_call)
         #define is_initialized
         loginfo(f"{self.node_id}: NetworkInterface:Initialized successfully")
         
@@ -86,14 +87,17 @@ class NetworkInterface:
         '''
         Add message to queue
         '''        
-        self.queue.put({"type":type[0],"data":json.loads(message.data)})
+        self.queue.put({"type":type[0],"data":message})
      
     def make_function_call(self,service,function_name,*args):
         args = json.dumps(args)
-        response = service(function_name,args).response
+        response = service(function_name,args)
+        
         if response == r"{}":
-            return None
-        return json.loads(response)
+            ret_data= None
+        else:
+            ret_data = json.loads(response.response)
+        return ret_data
     def verify_data(self,message):
         #check if message has session id
         if message.get("session_id",'') == "": 
@@ -133,7 +137,10 @@ class NetworkInterface:
                     if self.DEBUG:    
                         loginfo(f"{self.node_id}: signature not verified")
                     return None
-            return message
+            return {
+                "message": message,
+                "session": session
+            }
         else:
             #get session
             session = self.make_function_call(self.sessions,"get_connection_session",message["session_id"])
@@ -145,13 +152,19 @@ class NetworkInterface:
             #decrypt message
             try:
                 decrypted_msg = EncryptionModule.decrypt_symmetric(message["message"],session["key"])
+                decrypted_data = json.loads(decrypted_msg)
+                if type(decrypted_data) is not dict:
+                    loginfo(f"{self.node_id}: Invalid message data {decrypted_data}")
             except Exception as e:
                 if self.DEBUG:
                     loginfo(f"{self.node_id}: error in symmetric decryption : {e}")
                 return
             #validate message
-            message["message"] = json.loads(decrypted_msg)       
-            return message
+            message["message"] = decrypted_data       
+            return {
+                "message": message,
+                "session": session
+            }
     
     def __prepare_message(self,msg_type, message,signed=False,session_id=None):
         
@@ -172,77 +185,76 @@ class NetworkInterface:
 
     def send_message(self,msg_type, target, message,signed=False):
         #prepare message payload
-        msg_data = OrderedDict({
+        msg_data = {
             "timestamp": str(datetime.datetime.now()),
                 "data":message
-                })
+                }
         
         msg_payload = self.__prepare_message(msg_type,msg_data,signed=signed)
         #define target sessions
         if target == "all":
             #prepare message data
-            self.publisher.publish(json.dumps({
+            self.publisher.publish({
                     "target": 'all',
                     "time":mktime(datetime.datetime.now().timetuple()),
                     "message": msg_payload
-                }))
+                })
         else:
+            sessions = self.make_function_call(self.sessions,"get_connection_sessions")
+            sessions = {session["node_id"]:session for session in sessions.values()}
             if target == "all_active":
-                node_ids = self.make_function_call(self.sessions,"get_active_nodes")
+                pass
             elif type(target) == list:
-                node_ids = target
+                sessions = {node_id:sessions.get(node_id) for node_id in target}
             else:
-                node_ids = [target]
+                sessions = {target:sessions.get(target)}
             #iterate over target sessions
-            for node_id in node_ids:
+            for node_id,session in sessions.items():
                 #check if node_id is local node_id 
                 if node_id == self.node_id:
                     continue
-                #get node_ids session 
-                session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",node_id)
                 if session != None and session["approved"]:
-                    #stringify message data
-                    msg_data = json.dumps(msg_data)
                     #encrypt message data
                     prepared_message = EncryptionModule.encrypt_symmetric(msg_data,session["key"])
                     msg_payload["message"] = prepared_message
                     msg_payload["session_id"] = session["session_id"]
                 else:
                     #check if there is discovery session
-                    discovery_session = self.make_function_call(self.sessions,"get_discovery_session",node_id)
-                    if discovery_session:
+                    session = self.make_function_call(self.sessions,"get_discovery_session",node_id)
+                    if session:
                         #stringify message data
                         msg_data = json.dumps(msg_data)
                         #encrypt message data
-                        prepared_message = EncryptionModule.encrypt(msg_data,EncryptionModule.reformat_public_key(discovery_session["pk"]))
+                        prepared_message = EncryptionModule.encrypt(msg_data,EncryptionModule.reformat_public_key(session["pk"]))
                         msg_payload["message"] = prepared_message
                     
                 #add message to the queue
-                self.publisher.publish(json.dumps({
-                    "target": node_id,
+                self.publisher.publish({
+                    "target": session["node_id"],
                     "time":mktime(datetime.datetime.now().timetuple()),
                     "message": msg_payload
-                }))
+                })
   
             
     def handle_message(self, message):
         #check message type
-        message =self.verify_data(message)
-        if not message:
-            if self.DEBUG:
-                loginfo(f"{self.node_id}: Invalid message")
+        #print(message)
+        verified =self.verify_data(message)
+        if not verified:
             return
+        message= verified["message"]
+        session = verified["session"]
         #handle message                      
         if message["node_id"]==self.node_id:
             return
         elif str(message["type"]).startswith("discovery"):
-            self.discovery_publisher.publish(json.dumps(message))
+            self.discovery_publisher.publish(message)
         elif str(message["type"]).startswith("heartbeat"):
-            self.heartbeat_publisher.publish(json.dumps(message))
+            self.heartbeat_publisher.publish(message)
         elif str(message["type"]).startswith("sync"):
-            self.sync_publisher.publish(json.dumps(message))
+            self.sync_publisher.publish(message)
         elif message["type"]=="data_exchange":
-            self.consensus_publisher.publish(json.dumps(message))
+            self.consensus_publisher.publish({"message":message["message"],"session":session})
         else:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: unknown message type {message['type']}")
@@ -266,10 +278,14 @@ if __name__ == "__main__":
         if not network.queue.empty():
             message = network.queue.get()
             #loginfo(f"{network.node_id}: Network: Handling message of type {message['data']['type']}")
+            #start_time = time()
             if message["type"] == "handle":
+                #print(message["data"])
                 network.handle_message(message["data"])
+                #print(f"Time taken to handle message : {time()-start_time}")
             elif message["type"] == "prepare":
                 network.send_message(message["data"]["type"],message["data"]["target"],message["data"]["message"],message["data"].get("signed",False))
+                #print(f"Time taken to send message : {time()-start_time}")            
             else:
                 loginfo(f"{network.node_id}: Invalid message type on network node, message : {message}")
         rate.sleep()
