@@ -39,6 +39,9 @@ do
       resources:
         limits:
           cpus: '$cores'
+      placement:
+        constraints:
+          - node.role == worker
 EOF
 )
 
@@ -57,6 +60,10 @@ mosquittoo_service=$(cat << EOF
     volumes:
       - ./mosquitto/data:/etc/mosquitto
       - ./mosquitto/config:/mosquitto/config
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
     networks:\n
 EOF
 )
