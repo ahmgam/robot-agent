@@ -220,8 +220,8 @@ class SBFT:
         msg["node_ids"] = node_ids
         msg["start_time"] = start_time
         #sign message
-        
-        msg_signature = EncryptionModule.sign(msg,self.sk)
+        msg_payload = json.dumps(msg)
+        msg_signature = EncryptionModule.sign(msg_payload,self.sk)
         #add signature to message
         msg["signature"] = msg_signature
         #broadcast message to the network
@@ -236,9 +236,10 @@ class SBFT:
                 loginfo(f"{self.node_id}: View is already created in pre-prepare")
             return
         #verify signature
-        msg_signature = msg.pop('signature')      
+        msg_signature = msg.pop('signature')
+        msg_payload = json.dumps(msg)      
         #verify the message signature
-        if EncryptionModule.verify(msg, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
+        if EncryptionModule.verify(msg_payload, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: signature not verified in pre-prepare")
             return None
@@ -257,7 +258,8 @@ class SBFT:
             "hash":EncryptionModule.hash(msg["message"])
         }
         #get hash and sign of message
-        msg_signature = EncryptionModule.sign(payload,self.sk)
+        msg_payload = json.dumps(payload)
+        msg_signature = EncryptionModule.sign(msg_payload,self.sk)
         #add signature to message
         payload["signature"]=msg_signature
         #create view
@@ -301,8 +303,9 @@ class SBFT:
             return
         #verify signature
         msg_signature = msg.pop('signature')
+        msg_payload = json.dumps(msg)
         #verify the message signature
-        if EncryptionModule.verify(msg, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
+        if EncryptionModule.verify(msg_payload, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: signature not verified in prepare")
             return None
@@ -388,9 +391,10 @@ class SBFT:
         for m in msg["prepare"].values():
             #verify signature
             m_signature = m.pop('signature')
+            msg_payload = json.dumps(m)
             #verify the message signature
             node_state = view["node_ids"].get(m["source"])
-            if EncryptionModule.verify(m, m_signature, EncryptionModule.reformat_public_key(node_state)) == False:
+            if EncryptionModule.verify(msg_payload, m_signature, EncryptionModule.reformat_public_key(node_state)) == False:
                 if self.DEBUG:
                     loginfo(f"{self.node_id}: signature of {m['source']} not verified")
                 return None
@@ -407,8 +411,9 @@ class SBFT:
             "source":self.node_id,
             "hash":view["hash"]
         }
-        #get hash and sign of message        
-        msg_signature = EncryptionModule.sign(payload,self.sk)
+        #get hash and sign of message    
+        msg_payload = json.dumps(payload)    
+        msg_signature = EncryptionModule.sign(msg_payload,self.sk)
         #add signature to message
         payload["signature"] = msg_signature
         #update view
@@ -439,9 +444,9 @@ class SBFT:
         #verify signature
         msg_signature = msg.pop('signature')
         #msg_hash = msg.pop('hash')
-
+        msg_payload = json.dumps(msg)
         #verify the message signature
-        if EncryptionModule.verify(msg, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
+        if EncryptionModule.verify(msg_payload, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: signature not verified in commit")
             return None
