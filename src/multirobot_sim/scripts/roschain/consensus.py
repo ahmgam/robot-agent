@@ -470,7 +470,8 @@ class SBFT:
             "commit":self.views[view_id]["commit"]
         }
         #get hash and sign of message
-        msg_signature = EncryptionModule.sign(payload,self.sk)
+        msg_payload = json.dumps(payload)
+        msg_signature = EncryptionModule.sign(msg_payload,self.sk)
         #add signature to message
         payload["signature"] = msg_signature
         #update view
@@ -519,8 +520,9 @@ class SBFT:
             return
         #verify signature
         msg_signature = msg.pop('signature')
+        msg_payload = json.dumps(msg)
         #verify the message signature
-        if EncryptionModule.verify(msg, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
+        if EncryptionModule.verify(msg_payload, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: signature not verified in commit-collect")
             return None
