@@ -32,13 +32,12 @@ do
       - SECRET=lkfpoewrvcmlsdjfjehf
       - UPDATE_INTERVAL=5
       - MIN_NODES_NUM=$min_nodes_num
-    volumes:
-      - ./robots/$service_name/files:/robot_ws/src/multirobot_sim/files
-      - ./robots/schema:/robot_ws/src/multirobot_sim/schema
     deploy:
       resources:
         limits:
           cpus: '$cores'
+      restart_policy:
+        condition: none
       placement:
         constraints:
           - node.role == worker

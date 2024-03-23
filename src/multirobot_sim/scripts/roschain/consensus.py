@@ -124,7 +124,7 @@ class SBFT:
         try:
             msg= msg["data"]
         except : 
-            print(f"error with message with type {type(msg)}: {msg}")
+            print(f"error with message with type {type(msg)}: {msg} and session : {session}")
             exit()
         operation = msg['operation']
         #start_time = time()
