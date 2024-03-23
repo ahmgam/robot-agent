@@ -2,6 +2,7 @@
 from random import choices
 from string import ascii_lowercase
 import json
+import pickle
 from encryption import EncryptionModule
 from math import ceil
 from time import mktime,time
@@ -37,8 +38,8 @@ class SBFT:
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
         self.key_store.wait_for_service(timeout=100)
         #get public and private key 
-        keys  = self.make_function_call(self.key_store,"get_rsa_key")
-        self.pk,self.sk =EncryptionModule.reconstruct_keys(keys["pk"],keys["sk"])
+        self.keys  = self.make_function_call(self.key_store,"get_rsa_key")
+        self.pk,self.sk =EncryptionModule.reconstruct_keys(self.keys["pk"],self.keys["sk"])
         #init sessions
         loginfo(f"{self.node_id}: SBFT:Initializing sessions service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call",FunctionCall,True)
@@ -121,11 +122,21 @@ class SBFT:
     def handle(self, msg):
         #handle message
         msg, session = msg["message"], msg.get("session")
+        error = False
         try:
             msg= msg["data"]
         except : 
             print(f"error with message with type {type(msg)}: {msg} and session : {session}")
-            exit()
+            error = True
+            
+        if error:
+            try:
+                msg = pickle.loads(msg)
+                msg= msg["data"]
+            except:
+                print(f"error with message with type {type(msg)}: {msg} and session : {session}")
+                exit()
+            
         operation = msg['operation']
         #start_time = time()
         if operation == 'submit':
@@ -318,12 +329,12 @@ class SBFT:
             "operation":"prepare-collect",
             "view_id":view_id,
             "source":self.node_id,
-            "prepare":self.views[view_id]["prepare"],
+            "prepare":{p["source"]:p for p in self.views[view_id]["prepare"]},
             "hash":view["hash"]
         }
         #get hash and sign of message
-
-        msg_signature = EncryptionModule.sign(payload,self.sk)
+        msg_payload = json.dumps(payload)
+        msg_signature = EncryptionModule.sign(msg_payload,self.sk)
         #add signature to message
         payload["signature"] = msg_signature
         #update view
@@ -357,9 +368,9 @@ class SBFT:
         #verify signature
         msg_signature = msg.pop('signature')
         #msg_hash = msg.pop('hash')
-
+        msg_payload = json.dumps(msg)
         #verify the message signature
-        if EncryptionModule.verify(msg, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
+        if EncryptionModule.verify(msg_payload, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: signature not verified in prepare-collect")
             return None
@@ -374,13 +385,12 @@ class SBFT:
         #        loginfo("Node state table not equal")
         #    return None
         #loop in prepare-collect
-        for m in msg["prepare"]:
+        for m in msg["prepare"].values():
             #verify signature
             m_signature = m.pop('signature')
-            m_data = json.dumps(m)
             #verify the message signature
             node_state = view["node_ids"].get(m["source"])
-            if EncryptionModule.verify(m_data, m_signature, EncryptionModule.reformat_public_key(node_state)) == False:
+            if EncryptionModule.verify(m, m_signature, EncryptionModule.reformat_public_key(node_state)) == False:
                 if self.DEBUG:
                     loginfo(f"{self.node_id}: signature of {m['source']} not verified")
                 return None
@@ -600,7 +610,6 @@ if __name__ == "__main__":
         if not consensus.ongoing_view:
             if not consensus.input_queue.empty():
                 is_connected =len(consensus.make_function_call(consensus.sessions,"get_active_nodes")) >= consensus.min_nodes_num
-                #consensus.log_publisher.publish(f"{consensus.node_id}:{mktime(datetime.datetime.now().timetuple())},connected,{is_connected}")
                 if is_connected:
                     msg = consensus.input_queue.get()
                     if msg:

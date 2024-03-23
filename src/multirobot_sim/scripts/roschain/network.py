@@ -9,6 +9,7 @@ from rospy import Subscriber,Publisher,ROSInterruptException,Service,ServiceProx
 from multirobot_sim.srv import FunctionCall,FunctionCallResponse
 from std_msgs.msg import String
 from time import time
+import pickle
 from messages import MessagePublisher,MessageSubscriber
 class NetworkInterface:
     
@@ -115,7 +116,10 @@ class NetworkInterface:
                 try:
                     decrypted_data = EncryptionModule.decrypt(message["message"],self.sk)
                     #parse the message
-                    decrypted_data = json.loads(decrypted_data)
+                    if type(decrypted_data) is not dict:
+                        if self.DEBUG:
+                            loginfo(f"{self.node_id}: Invalid message data {decrypted_data}")
+                        
                 except Exception as e:
                     if self.DEBUG:    
                         loginfo(f"{self.node_id}: error decrypting and parsing data : {e}")
@@ -132,8 +136,7 @@ class NetworkInterface:
                 
             #verify the message signature
             if msg_signature:
-                msg_data = json.dumps(buff)
-                if EncryptionModule.verify(msg_data, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
+                if EncryptionModule.verify(buff, msg_signature, EncryptionModule.reformat_public_key(session["pk"])) == False:
                     if self.DEBUG:    
                         loginfo(f"{self.node_id}: signature not verified")
                     return None
@@ -151,8 +154,7 @@ class NetworkInterface:
 
             #decrypt message
             try:
-                decrypted_msg = EncryptionModule.decrypt_symmetric(message["message"],session["key"])
-                decrypted_data = json.loads(decrypted_msg)
+                decrypted_data = EncryptionModule.decrypt_symmetric(message["message"],session["key"])
                 if type(decrypted_data) is not dict:
                     loginfo(f"{self.node_id}: Invalid message data {decrypted_data}")
             except Exception as e:
@@ -179,7 +181,7 @@ class NetworkInterface:
             })
         #check if signed 
         if signed:
-            msg_payload["signature"] = EncryptionModule.sign(json.dumps(msg_payload),self.sk)
+            msg_payload["signature"] = EncryptionModule.sign(msg_payload,self.sk)
         return msg_payload
     
 
@@ -222,8 +224,6 @@ class NetworkInterface:
                     #check if there is discovery session
                     session = self.make_function_call(self.sessions,"get_discovery_session",node_id)
                     if session:
-                        #stringify message data
-                        msg_data = json.dumps(msg_data)
                         #encrypt message data
                         prepared_message = EncryptionModule.encrypt(msg_data,EncryptionModule.reformat_public_key(session["pk"]))
                         msg_payload["message"] = prepared_message

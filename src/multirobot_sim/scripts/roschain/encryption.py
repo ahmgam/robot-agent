@@ -6,8 +6,9 @@ import rsa
 import os
 from cryptography.fernet import Fernet
 from base64 import  b64encode, b64decode
-import json
+import pickle
 from math import ceil
+from collections import OrderedDict
 class EncryptionModule:
     
     @staticmethod
@@ -57,9 +58,13 @@ class EncryptionModule:
         '''
         hash message using SHA-256
         '''
+        if type(message) == str:
+          message = message.encode('utf-8')
         if type(message) == dict:
-          message = json.dumps(message)
-        return b64encode(rsa.compute_hash(message.encode('utf-8'), 'SHA-256')).decode('ascii')
+          message = pickle.dumps(message)
+        if type(message)== OrderedDict:
+          message = pickle.dumps(dict(message))
+        return b64encode(rsa.compute_hash(message, 'SHA-256')).decode('ascii')
 
     @staticmethod
     def sign_hash(message,sk):
@@ -76,9 +81,13 @@ class EncryptionModule:
         #define private key instance from string
         if type(sk) == str:
             sk = rsa.PrivateKey.load_pkcs1(sk)
-        if type(message) == dict:
-            message = json.dumps(message)
-        signature = rsa.sign(message.encode("utf-8"), sk, 'SHA-256')
+        if type(message) == str:
+            message = message.encode("utf-8")
+        if type(message) == dict :
+            message = pickle.dumps(message)
+        if type(message)== OrderedDict:
+            message = pickle.dumps(dict(message))
+        signature = rsa.sign(message, sk, 'SHA-256')
         return b64encode(signature).decode('ascii')
         
     @staticmethod
@@ -87,10 +96,14 @@ class EncryptionModule:
         if type(pk) == str:
             pk = rsa.PublicKey.load_pkcs1(pk)
         #verify signature
+        if type(message) == str:
+            message = message.encode("utf-8")
         if type(message) == dict:
-            message = json.dumps(message)
+            message = pickle.dumps(message)
+        if type(message)== OrderedDict:
+            message = pickle.dumps(dict(message))
         try : 
-          if rsa.verify(message.encode("utf-8"), b64decode(signature.encode('ascii')), pk):
+          if rsa.verify(message, b64decode(signature.encode('ascii')), pk):
             return True
         except:
           return False
@@ -130,12 +143,18 @@ class EncryptionModule:
     def encrypt(message, pk):
         if type(pk) == str:
             pk = rsa.PublicKey.load_pkcs1(pk)
+        if type(message) == str:
+            message = message.encode("utf-8")
+        if type(message) == dict:
+            message = pickle.dumps(message)
+        if type(message)== OrderedDict:
+            message = pickle.dumps(dict(message))
         #encrypt message
         result = []
         for i in range (ceil(len(message)/245)):
             start_index = i*245
             end_index = (i+1)*245 if (i+1)*245 < len(message) else len(message)
-            result.append(rsa.encrypt(message[start_index:end_index].encode("ascii"), pk))   
+            result.append(rsa.encrypt(message[start_index:end_index], pk))   
         return b64encode(b''.join(result)).decode('utf-8')
     
     @staticmethod
@@ -147,21 +166,39 @@ class EncryptionModule:
             for i in range (ceil(len(message)/256)):
                 start_index = i*256
                 end_index = (i+1)*256 if (i+1)*256 < len(message) else len(message)
-                result.append(rsa.decrypt(message[start_index:end_index], sk).decode("ascii"))   
-            return ''.join(result)
+                buffer = message[start_index:end_index]
+                result.append(rsa.decrypt(buffer, sk)) 
+            result = b''.join(result)
         except Exception as e:
-            print(f"error decrypting message: {e}")
+            print(f"error decrypting message: {e.with_traceback()}")
             return None
+        #test the type of resposne
+        try:
+          response = result.decode("ascii")
+        except Exception as e:
+          #use pickle
+          response = pickle.loads(result)
+        return response
     
     @staticmethod
     def encrypt_symmetric(message,key):
+        if type(message) == str:
+            message = message.encode("utf-8")
         if type(message) == dict:
-            message = json.dumps(message)
+            message = pickle.dumps(message)
+        if type(message)== OrderedDict:
+            message = pickle.dumps(dict(message))
         f = Fernet(key.encode("ascii"))
-        return b64encode(f.encrypt(message.encode("utf-8"))).decode('utf-8')
+        return b64encode(f.encrypt(message)).decode('utf-8')
     
     @staticmethod
     def decrypt_symmetric(ciphertext,key):
         f = Fernet(key.encode("ascii"))
-        return f.decrypt(b64decode(ciphertext.encode('utf-8'))).decode("ascii")
+        decrypted = f.decrypt(b64decode(ciphertext.encode('utf-8')))
+        try :
+          response = decrypted.decode("ascii")
+        except Exception as e:
+          #use pickle
+          response = pickle.loads(decrypted)
+        return response
     
