@@ -9,6 +9,7 @@ from base64 import  b64encode, b64decode
 import pickle
 from math import ceil
 from collections import OrderedDict
+import base64
 class EncryptionModule:
     
     @staticmethod
@@ -111,28 +112,44 @@ class EncryptionModule:
     @staticmethod
     def format_public_key(pk):
         #remove new line characters
-        pk = str(pk.save_pkcs1().decode('ascii'))
-        pk = pk.replace('\n-----END RSA PUBLIC KEY-----\n', '').replace('-----BEGIN RSA PUBLIC KEY-----\n','')
+        #pk = str(pk.save_pkcs1().decode('ascii'))
+        pk = base64.b64encode(pk.save_pkcs1()).decode()
+        #pk = pk.replace('\n-----END RSA PUBLIC KEY-----\n', '').replace('-----BEGIN RSA PUBLIC KEY-----\n','')
         return pk
+    
+    @staticmethod
+    def format_private_key(sk):
+        # Convert the byte string to a normal string
+        #sk = str(sk.save_pkcs1().decode('ascii'))
+        sk=base64.b64encode(sk.save_pkcs1()).decode()
+        # Remove the new line characters and the header and footer
+        #sk = sk.replace('\n-----END RSA PRIVATE KEY-----\n', '').replace('-----BEGIN RSA PRIVATE KEY-----\n','')
+        return sk
         
     @staticmethod
     def reformat_public_key(pk):
-        return f"-----BEGIN RSA PUBLIC KEY-----\n{str(pk)}\n-----END RSA PUBLIC KEY-----\n"
+        #return f"-----BEGIN RSA PUBLIC KEY-----\n{str(pk)}\n-----END RSA PUBLIC KEY-----\n"
+        return rsa.PublicKey.load_pkcs1(base64.b64decode(pk))
+    
+    @staticmethod
+    def reformat_private_key(sk):
+        #return f"-----BEGIN RSA PUBLIC KEY-----\n{str(pk)}\n-----END RSA PUBLIC KEY-----\n"
+        return rsa.PrivateKey.load_pkcs1(base64.b64decode(sk))
     
     @staticmethod
     def reconstruct_keys(pk,sk):
         #check if key pairs start with header and end with footer
-        if not str(pk).startswith("-----BEGIN RSA PUBLIC KEY-----\n"):
-            pk = f"-----BEGIN RSA PUBLIC KEY-----\n{str(pk)}"
-        if not str(pk).endswith("\n-----END RSA PUBLIC KEY-----\n"):
-            pk = f"{str(pk)}\n-----END RSA PUBLIC KEY-----\n"
-        if not str(sk).startswith("-----BEGIN RSA PRIVATE KEY-----\n"):
-            sk = f"-----BEGIN RSA PRIVATE KEY-----\n{str(sk)}"
-        if not str(sk).endswith("\n-----END RSA PRIVATE KEY-----\n"):
-            sk = f"{str(sk)}\n-----END RSA PRIVATE KEY-----\n"
+        #if not str(pk).startswith("-----BEGIN RSA PUBLIC KEY-----\n"):
+        #    pk = f"-----BEGIN RSA PUBLIC KEY-----\n{str(pk)}"
+        #if not str(pk).endswith("\n-----END RSA PUBLIC KEY-----\n"):
+        #    pk = f"{str(pk)}\n-----END RSA PUBLIC KEY-----\n"
+        #if not str(sk).startswith("-----BEGIN RSA PRIVATE KEY-----\n"):
+        #    sk = f"-----BEGIN RSA PRIVATE KEY-----\n{str(sk)}"
+        #if not str(sk).endswith("\n-----END RSA PRIVATE KEY-----\n"):
+        #    sk = f"{str(sk)}\n-----END RSA PRIVATE KEY-----\n"
         #now load keys 
-        pk = rsa.PublicKey.load_pkcs1(pk.encode("ascii"))
-        sk = rsa.PrivateKey.load_pkcs1(sk.encode("ascii"))
+        pk = rsa.PublicKey.load_pkcs1(base64.b64decode(pk))
+        sk = rsa.PrivateKey.load_pkcs1(base64.b64decode(sk))
         return pk, sk
        
     @staticmethod 
@@ -142,7 +159,7 @@ class EncryptionModule:
     @staticmethod
     def encrypt(message, pk):
         if type(pk) == str:
-            pk = rsa.PublicKey.load_pkcs1(pk)
+            pk = rsa.PublicKey.load_pkcs1(base64.b64decode(pk))
         if type(message) == str:
             message = message.encode("utf-8")
         if type(message) == dict:
