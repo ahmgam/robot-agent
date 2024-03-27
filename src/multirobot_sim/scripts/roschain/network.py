@@ -230,7 +230,7 @@ class NetworkInterface:
                     
                 #add message to the queue
                 self.publisher.publish({
-                    "target": session["node_id"],
+                    "target": node_id,
                     "time":mktime(datetime.datetime.now().timetuple()),
                     "message": msg_payload
                 })

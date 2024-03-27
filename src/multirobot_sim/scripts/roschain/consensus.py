@@ -59,6 +59,8 @@ class SBFT:
         self.queue = Queue()
         #input queue
         self.input_queue = Queue()
+        #completed views
+        self.completed_views = []
         #ongoinng view
         self.ongoing_view = None
         #failed queue, handling it is in TODO list
@@ -146,37 +148,37 @@ class SBFT:
             #print(f"Time taken for pre_prepare: {time()-start_time}")
         elif operation == 'pre-prepare':
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting pre-prepare")
+                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']} and {msg['view_id']}, starting pre-prepare")
             self.pre_prepare(msg,session)
             #print(f"Time taken for pre_prepare: {time()-start_time}")
         elif operation == 'prepare':
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting prepare")
+                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']} and {msg['view_id']}, starting prepare")
             self.prepare(msg,session)
             #print(f"Time taken for prepare: {time()-start_time}")
         elif operation == 'prepare-collect':
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting prepare-collect")
+                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']} and {msg['view_id']}, starting prepare-collect")
             self.prepare_collect(msg,session)
             #print(f"Time taken for prepare_collect: {time()-start_time}")
         elif operation == 'commit':
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting commit")
+                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']} and {msg['view_id']}, starting commit")
             self.commit(msg,session)
             #print(f"Time taken for commit: {time()-start_time}")
         elif operation == 'commit-collect':
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting commit-collect")
+                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']} and {msg['view_id']}, starting commit-collect")
             self.commit_collect(msg,session)
             #print(f"Time taken for commit_collect: {time()-start_time}")
         elif operation == 'sync_request':
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting sync_request")
+                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']} and {msg['view_id']}, starting sync_request")
             self.make_function_call(self.blockchain,"handle_sync_request",msg)
             #print(f"Time taken for sync_request: {time()-start_time}")
         elif operation == 'sync_reply':
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']}, starting sync_response")
+                loginfo(f"{self.node_id}: Received message from {msg['source']} of type {msg['operation']} and {msg['view_id']}, starting sync_response")
             self.make_function_call(self.blockchain,"handle_sync_reply",msg)
             #print(f"Time taken for sync_reply: {time()-start_time}")
         else:
@@ -225,12 +227,16 @@ class SBFT:
         #add signature to message
         msg["signature"] = msg_signature
         #broadcast message to the network
-        self.prepare_message.publish({"message":msg,"type":"data_exchange","target":"all_active"})
+        self.prepare_message.publish({"message":msg,"type":"data_exchange","target":list(node_ids.keys())})
     
     def pre_prepare(self,msg,session):
         #handle pre-prepare message
         #check if view exists
         view_id = msg['view_id']
+        if view_id in self.completed_views:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: View {view_id} is already completed")
+            return
         if view_id in self.views.keys():
             if self.DEBUG:
                 loginfo(f"{self.node_id}: View is already created in pre-prepare")
@@ -283,6 +289,10 @@ class SBFT:
         #handle prepare message
         #check if view exists
         view_id = msg['view_id']
+        if view_id in self.completed_views:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: View {view_id} is already completed")
+            return
         if view_id not in self.views.keys():
             if self.DEBUG:
                 loginfo(f"{self.node_id}: View is not created in prepare")
@@ -344,7 +354,7 @@ class SBFT:
         self.views[view_id]["status"] = "prepare"
         self.views[view_id]["last_updated"] = mktime(datetime.datetime.now().timetuple())
         #broadcast message
-        self.prepare_message.publish({"message":payload,"type":"data_exchange","target":"all_active"})
+        self.prepare_message.publish({"message":payload,"type":"data_exchange","target":list(view["node_ids"].keys())})
         
     
     def prepare_collect(self,msg,session):
@@ -352,6 +362,10 @@ class SBFT:
         #check if view exists
         #loginfo(msg)
         view_id = msg['view_id']
+        if view_id in self.completed_views:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: View {view_id} is already completed")
+            return
         if view_id not in self.views.keys():
             if self.DEBUG:
                 loginfo(f"{self.node_id}: View is not created in prepare-collect")
@@ -425,9 +439,13 @@ class SBFT:
         #check if view exists
         #loginfo(msg)
         view_id = msg['view_id']
+        if view_id in self.completed_views:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: View {view_id} is already completed")
+            return
         if view_id not in self.views.keys():
             if self.DEBUG:
-                loginfo(f"{self.node_id}: View {view_id} is not created in commit")
+                loginfo(f"{self.node_id}: View {view_id} is not created in commit, available views are {self.views.keys()}")
             return
         #get view 
         view = self.views[view_id]
@@ -496,8 +514,9 @@ class SBFT:
         except Exception as e:
             print(f"{self.node_id}: ERROR : {e}")
         #broadcast message
-        self.prepare_message.publish({"message":payload,"type":"data_exchange","target":"all_active"})
+        self.prepare_message.publish({"message":payload,"type":"data_exchange","target":list(view["node_ids"].keys())})
         #remove view
+        self.completed_views.append(view_id)
         self.views.pop(view_id)
         #check if ongoing view is the same as view_id
         if self.ongoing_view == view_id:
@@ -507,6 +526,10 @@ class SBFT:
         #handle commit-collect message
         #check if view exists
         view_id = msg['view_id']
+        if view_id in self.completed_views:
+            if self.DEBUG:
+                loginfo(f"{self.node_id}: View {view_id} is already completed")
+            return
         if view_id not in self.views.keys():
             if self.DEBUG:
                 loginfo(f"{self.node_id}: View is not created in commit-collect")
@@ -567,6 +590,7 @@ class SBFT:
             })
         #remove view
         self.views.pop(view_id)
+        self.completed_views.append(view_id)
         #check if ongoing view is the same as view_id
         if self.ongoing_view == view_id:
             self.ongoing_view = None

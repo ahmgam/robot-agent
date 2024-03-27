@@ -49,6 +49,7 @@ class RosChain:
         loginfo(f"{self.node_id}: RSOChain:Initialized successfully")
         #define connector log publisher
         self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
+        self.counter=0
         self.ready = True
         
     def make_function_call(self,service,function_name,*args):
@@ -66,7 +67,7 @@ class RosChain:
         table_name = args.table_name
         data =json.loads(args.message) 
         msg_time = mktime(datetime.datetime.now().timetuple())
-        msg_id = ''.join(choices(ascii_lowercase, k=5))
+        msg_id = f'{self.node_id}_{self.counter}'
         message = {
             "table_name":table_name,
             "data":data,
@@ -85,6 +86,7 @@ class RosChain:
         }
         msg = {"message":{"data": payload}}
         #add message to the parent queue
+        self.counter+=1
         self.consensus.publish(msg)
         return SubmitTransactionResponse("Success")
 

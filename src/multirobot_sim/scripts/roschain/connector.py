@@ -46,7 +46,11 @@ class MQTTCommunicationModule:
     def on_message(self, client, userdata, message):
         #self.publisher.publish(json.dumps({"message":json.loads(message.payload.decode("utf-8")),"type":"incoming"}))
         #convert message to json
-        self.buffer.put({"data":pickle.loads(message.payload),"type":"incoming"})
+        try:
+            self.buffer.put({"data":pickle.loads(message.payload),"type":"incoming"})
+        except:
+            print(message.payload)
+            exit()
                 
         
 
@@ -59,10 +63,11 @@ class MQTTCommunicationModule:
         if self.DEBUG:
             rospy.loginfo(f'{self.node_id}: Connector: Sending message to {message["target"]} with type {message["message"]["type"]}')
         #parse message to string
-        if type(message["message"]) == OrderedDict or type(message["message"]) == dict:
-          message["message"] = pickle.dumps(message["message"])
-        else:
-          message["message"] = str(message["message"])
+        #if type(message["message"]) == OrderedDict or type(message["message"]) == dict:
+        #  message["message"] = pickle.dumps(message["message"])
+        #else:
+        #  message["message"] = str(message["message"])
+        message["message"] = pickle.dumps(message["message"])
         try:
             if message["target"] == "all":
                 self.client.publish(f"{self.base_topic}", message["message"], qos=2)
@@ -123,6 +128,7 @@ if __name__ == '__main__':
         if node.is_available():
             msg = node.get()
             if msg["type"] == "incoming":
+                print
                 node.publisher.publish(msg['data'])
             elif msg["type"] == "outgoing":
                 node.send(msg["data"])

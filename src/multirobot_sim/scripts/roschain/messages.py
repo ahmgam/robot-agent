@@ -292,7 +292,10 @@ def flatten_json(nested_json, parent_key='', sep='.'):
             items.extend(flatten_json(value, new_key, sep=sep).items())
         elif isinstance(value,list):
           for i,item in enumerate(value):
-            items.extend(flatten_json(item, f"{new_key}[{i}]", sep=sep).items())
+            if isinstance(item, dict):
+                items.extend(flatten_json(item, f"{new_key}[{i}]", sep=sep).items())
+            else:
+                items.append((f"{new_key}[{i}]", item))
         else:
             items.append((new_key, value))
     return dict(items)
@@ -342,7 +345,7 @@ def dict_to_keyvaluearray(data):
     '''
     if not isinstance(data,dict):
         loginfo(f"data must be a dictionary, not {data}")
-        raise TypeError("data must be a dictionary")
+        raise TypeError(f"data must be a dictionary but got {data}")
     return pack_key_value_array(flatten_json(data))
 
 def keyvaluearray_to_dict(kv_array):
@@ -357,16 +360,36 @@ def keyvaluearray_to_dict(kv_array):
 
         
 from rospy import Subscriber, Publisher
+from std_msgs.msg import UInt16MultiArray,MultiArrayDimension
+import pickle
 
+#class MessagePublisher(Publisher):
+#    def __init__(self, topic, *args, **kwargs):
+#        super().__init__(topic,KeyValueArray, *args, **kwargs)
+#
+#    def publish(self, message):
+#        message = dict_to_keyvaluearray(message)
+#        super().publish(message)
+        
+#class MessageSubscriber(Subscriber):
+#    def __init__(self, topic,callback, *args, **kwargs):
+#        super().__init__(topic,KeyValueArray, lambda msg,*args:callback(keyvaluearray_to_dict(msg),*args),*args, **kwargs)
+        
 class MessagePublisher(Publisher):
     def __init__(self, topic, *args, **kwargs):
-        super().__init__(topic,KeyValueArray, *args, **kwargs)
+        super().__init__(topic,UInt16MultiArray, *args, **kwargs)
 
     def publish(self, message):
-        message = dict_to_keyvaluearray(message)
-        super().publish(message)
+        message = list(pickle.dumps(message))
+        ros_message = UInt16MultiArray()
+        ros_message.data = message
+        ros_message.layout.dim.append(MultiArrayDimension())  
+        ros_message.layout.dim[0].size = len(message)  
+        ros_message.layout.dim[0].stride = 1
+        ros_message.layout.data_offset = 0  
+        super().publish(ros_message)
         
 class MessageSubscriber(Subscriber):
     def __init__(self, topic,callback, *args, **kwargs):
-        super().__init__(topic,KeyValueArray, lambda msg,*args:callback(keyvaluearray_to_dict(msg),*args),*args, **kwargs)
+        super().__init__(topic,UInt16MultiArray, lambda msg,*args:callback(pickle.loads(bytes(msg.data)),*args),*args, **kwargs)
         

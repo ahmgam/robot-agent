@@ -1,0 +1,126 @@
+version: '3.7'
+services:
+  robot01:
+    image: roschain:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robot01
+    networks:
+      - robot01
+    environment:
+      - ROBOT_NAME=robot01
+      - ROBOT_TYPE=robot
+      - MQTT_HOST=mosquittoo
+      - MQTT_PORT=1883
+      - SECRET=lkfpoewrvcmlsdjfjehf
+      - UPDATE_INTERVAL=5
+      - MIN_NODES_NUM=3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+      restart_policy:
+        condition: none
+      placement:
+        constraints:
+          - node.role == worker
+  robot02:
+    image: roschain:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robot02
+    networks:
+      - robot02
+    environment:
+      - ROBOT_NAME=robot02
+      - ROBOT_TYPE=robot
+      - MQTT_HOST=mosquittoo
+      - MQTT_PORT=1883
+      - SECRET=lkfpoewrvcmlsdjfjehf
+      - UPDATE_INTERVAL=5
+      - MIN_NODES_NUM=3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+      restart_policy:
+        condition: none
+      placement:
+        constraints:
+          - node.role == worker
+  robot03:
+    image: roschain:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robot03
+    networks:
+      - robot03
+    environment:
+      - ROBOT_NAME=robot03
+      - ROBOT_TYPE=robot
+      - MQTT_HOST=mosquittoo
+      - MQTT_PORT=1883
+      - SECRET=lkfpoewrvcmlsdjfjehf
+      - UPDATE_INTERVAL=5
+      - MIN_NODES_NUM=3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+      restart_policy:
+        condition: none
+      placement:
+        constraints:
+          - node.role == worker
+  robot04:
+    image: roschain:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robot04
+    networks:
+      - robot04
+    environment:
+      - ROBOT_NAME=robot04
+      - ROBOT_TYPE=robot
+      - MQTT_HOST=mosquittoo
+      - MQTT_PORT=1883
+      - SECRET=lkfpoewrvcmlsdjfjehf
+      - UPDATE_INTERVAL=5
+      - MIN_NODES_NUM=3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+      restart_policy:
+        condition: none
+      placement:
+        constraints:
+          - node.role == worker
+  mosquittoo:
+    image: eclipse-mosquitto
+    container_name: mosquittoo
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/data:/etc/mosquitto
+      - ./mosquitto/config:/mosquitto/config
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - robot01
+      - robot02
+      - robot03
+      - robot04
+
+networks:
+  robot01:
+  robot02:
+  robot03:
+  robot04:
