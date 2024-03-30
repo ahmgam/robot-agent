@@ -102,7 +102,7 @@ class HeartbeatProtocol:
         session = self.make_function_call(self.sessions,"get_connection_session",message["session_id"])
         if not session:
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Invalid session")
+                loginfo(f"{self.node_id}: Invalid session in handle_heartbeat")
             return
         #check counter
         #if message["message"]["counter"]<=session["counter"]:
@@ -133,7 +133,7 @@ class HeartbeatProtocol:
         session = self.make_function_call(self.sessions,"get_connection_session",message["session_id"])
         if not session:
             if self.DEBUG:
-                loginfo(f"{self.node_id}: Invalid session")
+                loginfo(f"{self.node_id}: Invalid session in handle_heartbeat_response")
             return
         #self.parent.server.logger.warning(f'table response : {json.dumps(message["message"]["data"])}' )
         #check counter

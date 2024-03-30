@@ -149,7 +149,7 @@ class NetworkInterface:
             session = self.make_function_call(self.sessions,"get_connection_session",message["session_id"])
             if not session:
                 if self.DEBUG:
-                    loginfo(f"{self.node_id}: Invalid session")
+                    loginfo(f"{self.node_id}: Invalid session in network message, message type : {message['type']}")
                 return
 
             #decrypt message
