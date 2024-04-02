@@ -18,6 +18,7 @@
         <node pkg="multirobot_sim" type="roschain.py" name="roschain" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>
             <param name="node_type" value="$(arg node_type)"/>
+            <param name="min_nodes_num" value="$(arg min_nodes_num)"/>
         </node>
         <node pkg="multirobot_sim" type="consensus.py" name="consensus" output="screen" required="true">
             <param name="node_id" value="$(arg node_id)"/>

@@ -250,7 +250,7 @@ class Database (object):
 
 class Blockchain:
     #initialize the blockchain
-    def __init__(self,node_id,node_type,secret,base_dir,block_size=10, tolerance=5,DEBUG=False):
+    def __init__(self,node_id,node_type,secret,base_dir,block_size=10, tolerance=2,DEBUG=False):
         
         #node id
         self.node_id = node_id
@@ -274,7 +274,7 @@ class Blockchain:
         self.queue = Queue()
         #buffer 
         self.buffer = OrderedQueue(self.base_dir)
-        self.buffer.load()
+        #self.buffer.load()
         loginfo(f"{node_id}: Blockchain: Initializing")
         node = init_node("blochchain",anonymous=True)
         # define database manager
@@ -515,7 +515,8 @@ class Blockchain:
         log_msg = f"{mktime(datetime.datetime.now().timetuple())},transaction,{msg['msg_id']},{msg['time']},{start_time}"
         self.log_publisher.publish(log_msg)
         self.buffer.put(msg,msg["time"],hash)
-        if self.buffer.count() > self.block_size+ self.tolerance:
+        
+        if self.buffer.count() > self.block_size+ len(self.make_function_call(self.sessions,"get_active_nodes"))* self.tolerance:
             node.add_block()
         
     def get_transaction(self,transaction_id):
@@ -739,6 +740,7 @@ class Blockchain:
             loginfo(f"{self.node_id}: Unknown message type {msg['type']}")
     def send_sync_request(self):
         #get the sync info
+        loginfo("Sending sync protocl")
         sync_data = self.get_sync_info()
         last_record,number_of_records = sync_data["last_record"],sync_data["number_of_records"]
         #add sync view

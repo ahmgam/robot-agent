@@ -94,11 +94,10 @@ class SessionManager:
     
     def get_connection_session(self,session_id):
         #get connection sessions
-        session= self.connection_sessions.get(session_id,None)
-        if session:
-            #update last call timestamp
-            self.connection_sessions[session_id]["last_active"] = mktime(datetime.now().timetuple())
-        return session
+        return self.connection_sessions.get(session_id,None)
+    
+    def get_connection_sessions(self):
+        return dict(self.connection_sessions)
         
     def create_connection_session(self, session_id, data):
         #create new session with the given public key and type
@@ -121,7 +120,11 @@ class SessionManager:
         return None
         
     def get_active_nodes(self):
-        return [session["node_id"] for session in self.connection_sessions.values() if session["last_active"] > mktime(datetime.now().timetuple())-60]
+        ret_data = []
+        for session in self.connection_sessions.values():
+            if session["last_active"] > mktime(datetime.now().timetuple())-60 and session["status"] == "active":
+                ret_data.append(session["node_id"])
+        return ret_data
 
     def is_conntected(self):
         if len(self.get_active_nodes()) > 0:
@@ -177,7 +180,7 @@ class SessionManager:
                 self.node_states[value["node_id"]] = {"pk":value["pk"],"last_active":mktime(datetime.now().timetuple())}
                 
     def get_connection_sessions(self):
-        return self.connection_sessions
+        return {key:value for key,value in  self.connection_sessions.items() if value["status"] == "active"}
     
     def get_node_state(self,node_id):
         if node_id in self.node_states.keys():

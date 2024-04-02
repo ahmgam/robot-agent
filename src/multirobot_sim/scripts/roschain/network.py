@@ -42,6 +42,7 @@ class NetworkInterface:
         loginfo(f"{self.node_id}: NetworkInterface:Initializing sessions service")
         self.sessions = ServiceProxy(f"/{self.node_id}/sessions/call", FunctionCall,True)
         self.sessions.wait_for_service(timeout=100)
+        self.session_cache = self.make_function_call(self.sessions,"get_connection_sessions")
         #define connector subscriber
         loginfo(f"{self.node_id}: NetworkInterface:Initializing connector subscriber")
         self.subscriber = MessageSubscriber(f"/{self.node_id}/network/handle_message", self.to_queue,("handle",))
@@ -146,10 +147,10 @@ class NetworkInterface:
             }
         else:
             #get session
-            session = self.make_function_call(self.sessions,"get_connection_session",message["session_id"])
+            session = self.session_cache.get(message["session_id"])
             if not session:
                 if self.DEBUG:
-                    loginfo(f"{self.node_id}: Invalid session in network message, message type : {message['type']}")
+                    loginfo(f"{self.node_id}: Invalid session in network message, message type : {message['type']}, session : {message['session_id']} , msg : {message}")
                 return
 
             #decrypt message
@@ -274,6 +275,7 @@ if __name__ == "__main__":
     
     network = NetworkInterface(node_id,node_type)
     rate = Rate(10)
+    counter = 0
     while not is_shutdown():
         if not network.queue.empty():
             message = network.queue.get()
@@ -288,5 +290,9 @@ if __name__ == "__main__":
                 #print(f"Time taken to send message : {time()-start_time}")            
             else:
                 loginfo(f"{network.node_id}: Invalid message type on network node, message : {message}")
+        if counter == 10:
+            counter = 0
+            network.session_cache = network.make_function_call(network.sessions,"get_connection_sessions")
+        counter +=1
         rate.sleep()
    

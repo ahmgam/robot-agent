@@ -87,10 +87,10 @@ class HeartbeatProtocol:
         
         #send heartbeat to session
         #prepare message 
-        msg_data = OrderedDict({
+        msg_data = {
                 "blockchain_status":self.make_function_call(self.blockchain,"get_sync_info"),
                 "state_table":self.make_function_call(self.sessions,"get_node_state_table")
-            })
+            }
         #call network service
         loginfo(f"{self.node_id}: HeartbeatProtocol: Sending heartbeat to {session['node_id']}")
         self.prepare_message.publish({"message":msg_data,"type":"heartbeat_request","target":session["node_id"]})
@@ -112,6 +112,9 @@ class HeartbeatProtocol:
         #update node state table
         #self.parent.server.logger.warning(f'table request : {json.dumps(message["message"]["data"])}' )
         self.make_function_call(self.sessions,"update_node_state_table",message["message"]["data"]["state_table"])
+        #update session
+        self.make_function_call(self.sessions,"update_connection_session",message["session_id"],{
+            "last_active": mktime(datetime.datetime.now().timetuple())})
         #chcek blockchain status
         is_synced = self.make_function_call(self.blockchain,"check_sync",message["message"]["data"]["blockchain_status"]["last_record"],message["message"]["data"]["blockchain_status"]["number_of_records"])
         if is_synced == "False":
@@ -120,10 +123,10 @@ class HeartbeatProtocol:
             self.make_function_call(self.blockchain,"send_sync_request")
             
         #prepare message 
-        msg_data = OrderedDict({
+        msg_data = {
                 "state_table":self.make_function_call(self.sessions,"get_node_state_table"),
                 "blockchain_status":self.make_function_call(self.blockchain,"get_sync_info")
-            })
+            }
         #call network service
         self.prepare_message.publish({"message":msg_data,"type":"heartbeat_response","target":session["node_id"]})
  
@@ -173,7 +176,7 @@ if __name__ == '__main__':
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : max_delay")
     
-    node = HeartbeatProtocol(node_id,node_type,max_delay,DEBUG=True)
+    node = HeartbeatProtocol(node_id,node_type,max_delay,DEBUG=False)
     rate = Rate(10)
     while not is_shutdown():
         #check queue
