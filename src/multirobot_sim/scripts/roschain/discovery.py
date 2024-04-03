@@ -161,22 +161,26 @@ class DiscoveryProtocol:
                 loginfo(f"{self.node_id}: validation error {e}")
             return None
         #check if the node has active discovery session with the sender
-        session = self.make_function_call(self.sessions,"get_discovery_session",message.message["node_id"])
+        session = self.make_function_call(self.sessions,"get_discovery_session_by_node_id",message.message["node_id"])
         if session:
             if self.DEBUG:    
                 loginfo(f"{self.node_id}: discovery session is already active")
             return None
         else:
+            #generate session id 
+            session_id = self.generate_session_id()
             #create new session
             session_data = {
                 "pk": message.message["message"]["data"]["pk"],
                 "role":"server",
-                "node_type": message.message["node_type"],     
+                "node_type": message.message["node_type"],  
+                "discovery_session_id": session_id   
             }
-            self.make_function_call(self.sessions,"create_discovery_session",message.message["node_id"],session_data)
+            self.make_function_call(self.sessions,"create_discovery_session",session_id,session_data)
         #prepare discovery response message
         msg_data ={
-            "pk": EncryptionModule.format_public_key(self.pk)
+            "pk": EncryptionModule.format_public_key(self.pk),
+            "discovery_session_id": session_id   
             }
         #send the message
         self.publisher.publish({"target": message.message["node_id"],
@@ -195,7 +199,7 @@ class DiscoveryProtocol:
                 loginfo(f"{self.node_id}: error validating message : {e}")
             return None
         #check if the node has active discovery session with the sender
-        session = self.make_function_call(self.sessions,"get_discovery_session",message.message["node_id"])
+        session = self.make_function_call(self.sessions,"get_discovery_session_by_node_id",message.message["node_id"])
         if session:
             if session.get("challenge"):
                 if self.DEBUG:    
@@ -218,14 +222,16 @@ class DiscoveryProtocol:
             "node_type": message.message["node_type"],
             "challenge": challenge,
             "client_challenge_response": client_sol,
-            "server_challenge_response": server_sol
+            "server_challenge_response": server_sol,
+            "discovery_session_id": message.message["message"]["data"]["discovery_session_id"]
         }
         #create discovery session
-        self.make_function_call(self.sessions,"create_discovery_session",message.message["node_id"],session_data)
+        self.make_function_call(self.sessions,"create_discovery_session",message.message["message"]["data"]["discovery_session_id"],session_data)
         #prepare verification message 
         msg_data = {
             "challenge": challenge,
-            "client_challenge_response": client_sol
+            "client_challenge_response": client_sol,
+            "discovery_session_id": message.message["message"]["data"]["discovery_session_id"]
             }
         #send the message
         self.publisher.publish({"target": message.message["node_id"],
@@ -237,7 +243,7 @@ class DiscoveryProtocol:
     def verify_discovery_response(self,message):
         #verify discovery response and add node to the network
         #check if the node does not have active discovery session with the sender
-        session = self.make_function_call(self.sessions,"get_discovery_session",message["node_id"])
+        session = self.make_function_call(self.sessions,"get_discovery_session",message["message"]["data"]["discovery_session_id"])
         if not session:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: node does not have active discovery session with the sender")
@@ -269,11 +275,12 @@ class DiscoveryProtocol:
             "server_challenge_response": server_sol
         }
         #update discovery session
-        self.make_function_call(self.sessions,"update_discovery_session",message.message["node_id"],session_data)
+        self.make_function_call(self.sessions,"update_discovery_session",message.message["message"]["data"]["discovery_session_id"],session_data)
         #prepare verification message
         msg_data = {
             "challenge": challenge,
-            "server_challenge_response": server_sol
+            "server_challenge_response": server_sol,
+            "discovery_session_id": message.message["message"]["data"]["discovery_session_id"]
             }
         #send the message
         self.publisher.publish({
@@ -286,7 +293,7 @@ class DiscoveryProtocol:
     def approve_discovery(self,message):
         #approve discovery request and send approval response
         #check if the node does not have active discovery session with the sender
-        session = self.make_function_call(self.sessions,"get_discovery_session",message["node_id"])
+        session = self.make_function_call(self.sessions,"get_discovery_session",message["message"]["data"]["discovery_session_id"])
         if not session:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: node does not have active discovery session with the sender")
@@ -327,7 +334,8 @@ class DiscoveryProtocol:
         msg_data ={
             "session_id": session_id,
             "session_key": key,
-            "test_message": EncryptionModule.encrypt_symmetric("client_test",key)
+            "test_message": EncryptionModule.encrypt_symmetric("client_test",key),
+            "discovery_session_id":message["message"]["data"]["session_id"]
             }
         #send the message
         self.publisher.publish({"target": message.message["node_id"],
@@ -339,7 +347,7 @@ class DiscoveryProtocol:
     def approve_discovery_response(self,message):
         #approve discovery response and add node to the network
         #check if the node does not have active discovery session with the sender
-        session = self.make_function_call(self.sessions,"get_discovery_session",message["node_id"])
+        session = self.make_function_call(self.sessions,"get_discovery_session",message["message"]["data"]["discovery_session_id"])
         if not session:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: node does not have active discovery session with the sender")
@@ -382,7 +390,8 @@ class DiscoveryProtocol:
         #prepare approval message
         msg_data = {
             "session_id": session_id,
-            "test_message": EncryptionModule.encrypt_symmetric("server_test",key)
+            "test_message": EncryptionModule.encrypt_symmetric("server_test",key),
+            "discovery_session_id":message["message"]["data"]["discovery_session_id"]
             }
         #send the message
         self.publisher.publish({
@@ -399,7 +408,7 @@ class DiscoveryProtocol:
     def finalize_discovery(self,message):
         #approve discovery response and add node to the network
         #check if the node does not have active discovery session with the sender
-        session = self.make_function_call(self.sessions,"get_connection_session_by_node_id",message["node_id"])
+        session = self.make_function_call(self.sessions,"get_connection_session",message["message"]["data"]["discovery_session_id"])
         if not session:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: node does not have active discovery session with the sender")

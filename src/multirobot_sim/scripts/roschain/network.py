@@ -113,7 +113,7 @@ class NetworkInterface:
             if type(message["message"]) is  str:
                 #the message is a string, so it's encrypted discovery message
                 #check if the node does not have active discovery session with the sender
-                session = self.make_function_call(self.sessions,"get_discovery_session",message["node_id"])
+                session = self.make_function_call(self.sessions,"get_discovery_session_by_node_id",message["node_id"])
                 try:
                     decrypted_data = EncryptionModule.decrypt(message["message"],self.sk)
                     #parse the message
@@ -133,6 +133,7 @@ class NetworkInterface:
                 
             else:
                 #the message is not a string, so it's not encrypted discovery message
+                print(f'{message["message"]["data"]}')
                 session = {"pk":message["message"]["data"]["pk"]}
                 
             #verify the message signature
@@ -224,8 +225,12 @@ class NetworkInterface:
                     msg_payload["message"] = prepared_message
                     msg_payload["session_id"] = session["session_id"]
                 else:
-                    #check if there is discovery session
-                    session = self.make_function_call(self.sessions,"get_discovery_session",node_id)
+                    #check if message payload contains discovery session id
+                    if message.get("discovery_session_id"):
+                        session = self.make_function_call(self.sessions,"get_discovery_session",message["discovery_session_id"])
+                    else:
+                        #check if there is discovery session
+                        session = self.make_function_call(self.sessions,"get_discovery_session_by_node_id",node_id)
                     if session:
                         #encrypt message data
                         prepared_message = EncryptionModule.encrypt(msg_data,EncryptionModule.reformat_public_key(session["pk"]))

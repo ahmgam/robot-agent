@@ -77,14 +77,24 @@ class SessionManager:
         #update last call timestamp
         self.discovery_sessions[node_id]["last_active"] = mktime(datetime.now().timetuple())
         
-    def get_discovery_session(self, node_id):
+    def get_discovery_session(self, session_id):
         #get all discovery sessions
-        session = self.discovery_sessions.get(node_id,None)
+        session = self.discovery_sessions.get(session_id,None)
         if session:
             #update last call timestamp
             self.discovery_sessions[node_id]["last_active"] = mktime(datetime.now().timetuple()) 
         return session
     
+    def get_discovery_session_by_node_id(self, node_id):
+        #get all discovery sessions
+        session = None
+        for discovery_session in self.discovery_sessions.values():
+            if discovery_session["node_id"] == node_id:
+                session= discovery_session
+        if session:
+            #update last call timestamp
+            self.discovery_sessions[session["session_id"]]["last_active"] = mktime(datetime.now().timetuple()) 
+        return session
     def has_active_connection_session(self, node_id):
         #check if session with the given public key is active
         for key,value in self.connection_sessions.items():
