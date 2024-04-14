@@ -8,6 +8,8 @@ from multirobot_sim.srv import FunctionCall, FunctionCallResponse
 from encryption import EncryptionModule
 import json
 import rospy
+import traceback
+
 class SessionManager:
     def __init__(self,node_id):
         #define session manager
@@ -53,7 +55,7 @@ class SessionManager:
             else:
                 response = None
         except Exception as e:
-            print(e.with_traceback())
+            print(f"error in sessions : {traceback.print_tb(e.__traceback__)}")
             response = None
         if response == None:
             response = FunctionCallResponse(r'{}')
@@ -63,26 +65,29 @@ class SessionManager:
         
         return response
         
-    def create_discovery_session(self, node_id, data):
+    def create_discovery_session(self,session_id, data):
         #create new session with the given public key and type
-        data["node_id"] = node_id
         #add last call timestamp
         data["last_active"] = mktime(datetime.now().timetuple())
-        self.discovery_sessions[node_id]= data
+        self.discovery_sessions[session_id]= data
+        
+    def get_discovery_sessions(self):
+        #get all discovery sessions
+        return dict(self.discovery_sessions)
             
-    def update_discovery_session(self, node_id, data):
+    def update_discovery_session(self,session_id, data):
         #update session with the given public key and type
         for key,value in data.items():
-            self.discovery_sessions[node_id][key] = value
+            self.discovery_sessions[session_id][key] = value
         #update last call timestamp
-        self.discovery_sessions[node_id]["last_active"] = mktime(datetime.now().timetuple())
+        self.discovery_sessions[session_id]["last_active"] = mktime(datetime.now().timetuple())
         
     def get_discovery_session(self, session_id):
         #get all discovery sessions
         session = self.discovery_sessions.get(session_id,None)
         if session:
             #update last call timestamp
-            self.discovery_sessions[node_id]["last_active"] = mktime(datetime.now().timetuple()) 
+            self.discovery_sessions[session_id]["last_active"] = mktime(datetime.now().timetuple()) 
         return session
     
     def get_discovery_session_by_node_id(self, node_id):
@@ -91,9 +96,9 @@ class SessionManager:
         for discovery_session in self.discovery_sessions.values():
             if discovery_session["node_id"] == node_id:
                 session= discovery_session
-        if session:
+        #if session:
             #update last call timestamp
-            self.discovery_sessions[session["session_id"]]["last_active"] = mktime(datetime.now().timetuple()) 
+            #self.discovery_sessions[session["session_id"]]["last_active"] = mktime(datetime.now().timetuple()) 
         return session
     def has_active_connection_session(self, node_id):
         #check if session with the given public key is active

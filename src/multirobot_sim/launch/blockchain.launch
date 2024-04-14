@@ -9,7 +9,7 @@
     <arg name="update_interval" default="$(env UPDATE_INTERVAL)"/>
     <arg name="max_delay" default="10.0"/>
     <arg name="schema" default="$(arg base_directory)/schema/schema.sql"/>
-    <arg name="timeout_interval" default="10.0"/>
+    <arg name="timeout_interval" default="60.0"/>
     <arg name="min_nodes_num" default="$(env MIN_NODES_NUM)"/>
 
   <!--Robot namespace-->

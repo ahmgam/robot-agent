@@ -99,14 +99,14 @@ class DiscoveryProtocol:
                 loginfo(f"{self.node_id}: Received message from {message['node_id']} of type {message['type']}, starting verify_discovery_response")
             self.verify_discovery_response(message)
         elif message["type"] == "discovery_verification_response":
-            if not self.except_active_session(message["node_id"]):
-                return None
+            #if not self.except_active_session(message["node_id"]):
+            #    return None
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {message['node_id']} of type {message['type']}, starting approve_discovery")
             self.approve_discovery(message)
         elif message["type"] == "discovery_approval":
-            if not self.except_active_session(message["node_id"]):
-                return None
+            #if not self.except_active_session(message["node_id"]):
+            #    return None
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {message['node_id']} of type {message['type']}, starting approve_discovery_response")
             self.approve_discovery_response(message)
@@ -173,6 +173,7 @@ class DiscoveryProtocol:
             session_data = {
                 "pk": message.message["message"]["data"]["pk"],
                 "role":"server",
+                "node_id":message.message["node_id"],
                 "node_type": message.message["node_type"],  
                 "discovery_session_id": session_id   
             }
@@ -182,6 +183,11 @@ class DiscoveryProtocol:
             "pk": EncryptionModule.format_public_key(self.pk),
             "discovery_session_id": session_id   
             }
+        #print debug message
+        #if self.DEBUG:
+            #get all discovery sessions
+        #    sessions = self.make_function_call(self.sessions,"get_discovery_sessions")
+        #    loginfo(f"{self.node_id}:respond_to_discovery: attemping to connect to {message.message['node_id']}, discovery sessions : {sessions}")
         #send the message
         self.publisher.publish({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
@@ -219,6 +225,7 @@ class DiscoveryProtocol:
         session_data = {
             "pk": message.message["message"]["data"]["pk"],
             "role": "client",
+            "node_id":message.message["node_id"],
             "node_type": message.message["node_type"],
             "challenge": challenge,
             "client_challenge_response": client_sol,
@@ -233,6 +240,11 @@ class DiscoveryProtocol:
             "client_challenge_response": client_sol,
             "discovery_session_id": message.message["message"]["data"]["discovery_session_id"]
             }
+        #print debug message
+        #if self.DEBUG:
+        #    #get all discovery sessions
+        #    sessions = self.make_function_call(self.sessions,"get_discovery_sessions")
+        #    loginfo(f"{self.node_id}:verify_discovery: attemping to connect to {message.message['node_id']}, discovery sessions : {sessions}")
         #send the message
         self.publisher.publish({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
@@ -282,6 +294,11 @@ class DiscoveryProtocol:
             "server_challenge_response": server_sol,
             "discovery_session_id": message.message["message"]["data"]["discovery_session_id"]
             }
+        #print debug message
+        #if self.DEBUG:
+        #    #get all discovery sessions
+        #    sessions = self.make_function_call(self.sessions,"get_discovery_sessions")
+        #    loginfo(f"{self.node_id}:verify_discovery_response: attemping to connect to {message.message['node_id']}, discovery sessions : {sessions}")
         #send the message
         self.publisher.publish({
             "target": message.message["node_id"],
@@ -315,7 +332,8 @@ class DiscoveryProtocol:
         #first generate symmetric key
         key = EncryptionModule.generate_symmetric_key()
         #get the session id
-        session_id = self.generate_session_id()
+        #session_id = self.generate_session_id()
+        session_id = message.message["message"]["data"]["discovery_session_id"]
         #create new session
         session_data = {
             "pk": session["pk"],
@@ -335,8 +353,15 @@ class DiscoveryProtocol:
             "session_id": session_id,
             "session_key": key,
             "test_message": EncryptionModule.encrypt_symmetric("client_test",key),
-            "discovery_session_id":message["message"]["data"]["session_id"]
+            "discovery_session_id":message.message["message"]["data"]["discovery_session_id"]
             }
+        #print debug message
+        #if self.DEBUG:
+            #get all discovery sessions
+        #    sessions = self.make_function_call(self.sessions,"get_discovery_sessions")
+            #get all connection sessions 
+        #    connection_sessions = self.make_function_call(self.sessions,"get_connection_sessions")
+        #    loginfo(f"{self.node_id}:approve_discovery: attemping to connect to {message.message['node_id']}, discovery sessions : {sessions}, connection sessions : {connection_sessions}")
         #send the message
         self.publisher.publish({"target": message.message["node_id"],
                                       "time":mktime(datetime.datetime.now().timetuple()),
@@ -391,7 +416,7 @@ class DiscoveryProtocol:
         msg_data = {
             "session_id": session_id,
             "test_message": EncryptionModule.encrypt_symmetric("server_test",key),
-            "discovery_session_id":message["message"]["data"]["discovery_session_id"]
+            "discovery_session_id":message.message["message"]["data"]["discovery_session_id"]
             }
         #send the message
         self.publisher.publish({
@@ -403,6 +428,13 @@ class DiscoveryProtocol:
         #delay for 1 second
         sleep(1)
         self.make_function_call(self.sessions,"create_connection_session",session_id,session_data)
+        #print debug message
+        #if self.DEBUG:
+            #get all discovery sessions
+        #    sessions = self.make_function_call(self.sessions,"get_discovery_sessions")
+            #get all connection sessions 
+        #    connection_sessions = self.make_function_call(self.sessions,"get_connection_sessions")
+        #    loginfo(f"{self.node_id}:approve_discovery_response: attemping to connect to {message.message['node_id']}, discovery sessions : {sessions}, connection sessions : {connection_sessions}")
         loginfo(f"{self.node_id}: Discovery completed successfully with {message.message['node_id']}")
 
     def finalize_discovery(self,message):
@@ -440,6 +472,13 @@ class DiscoveryProtocol:
             "status": "active",
         }
         self.make_function_call(self.sessions,"update_connection_session",session_id,session_data)
+        #print debug message
+        #if self.DEBUG:
+            #get all discovery sessions
+        #    sessions = self.make_function_call(self.sessions,"get_discovery_sessions")
+            #get all connection sessions 
+        #    connection_sessions = self.make_function_call(self.sessions,"get_connection_sessions")
+        #    loginfo(f"{self.node_id}:finalize_discovery: attemping to connect to {message.message['node_id']}, discovery sessions : {sessions}, connection sessions : {connection_sessions}")
         loginfo(f"{self.node_id}: Discovery completed successfully with {message.message['node_id']}")
         
 if __name__ == '__main__':
@@ -469,7 +508,7 @@ if __name__ == '__main__':
     except ROSInterruptException:
         raise ROSInterruptException("Invalid arguments : max_delay")
     
-    node = DiscoveryProtocol(node_id,node_type,secret,max_delay,DEBUG=False)
+    node = DiscoveryProtocol(node_id,node_type,secret,max_delay,DEBUG=True)
     #define rate
     rate = Rate(10)
     while not is_shutdown():
