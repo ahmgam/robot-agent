@@ -31,6 +31,8 @@ class NetworkInterface:
         self.node = init_node("network_interface", anonymous=True)
         #define queue
         self.queue = Queue()
+        #define retry queue
+        self.retry_queue = Queue()
         #define key store proxy
         loginfo(f"{self.node_id}: NetworkInterface:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
@@ -166,7 +168,7 @@ class NetworkInterface:
                 if dis_session:
                     loginfo(f"{self.node_id}: session not found in connection sessions, but it's still in discovery sessions")
                     #return the message to the queue
-                    self.queue.insert(1,original_message)
+                    self.retry_queue.put(original_message)
                     return None
                 
                 if self.DEBUG:
@@ -315,6 +317,9 @@ if __name__ == "__main__":
                 #print(f"Time taken to send message : {time()-start_time}")            
             else:
                 loginfo(f"{network.node_id}: Invalid message type on network node, message : {message}")
+        if not network.retry_queue.empty():
+            message = network.retry_queue.get()
+            network.handle_message(message)
         if counter == 10:
             counter = 0
             network.session_cache = network.make_function_call(network.sessions,"get_connection_sessions")
