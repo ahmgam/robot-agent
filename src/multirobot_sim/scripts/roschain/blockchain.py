@@ -191,7 +191,7 @@ class Database (object):
         #build query
         query = "UPDATE {table} SET {keywords} {options}".format(
             table=table_name,
-            keywords=",".join([f"{key} = {value}" for key,value in keyword.items()]),
+            keywords=",".join([f"{key} = {value}" if type(value)!= str else f"{key} = '{value}'" for key,value in keyword.items()]),
             options="WHERE "+" AND ".join([f"{condition[0]} {condition[1]} {condition[2]}" for condition in conditions]) if conditions else ""
             )
         #loginfo(query)
@@ -456,7 +456,6 @@ class Blockchain:
 
     #commit a new transaction to the blockchain
     def add_transaction(self,table,item,time =mktime(datetime.datetime.now().timetuple())):
-        
         #add the record to it's table
         item_id = item.pop("id")
         #remove the hash from the record
@@ -468,15 +467,99 @@ class Blockchain:
         
         return tx_item
 
-    def add_block(self):
+    def check_tx_integrity(self,tx_time):
+        #this function should get the last transaction time and check if the time is lower than the last transaction time
+        last_id = self.db.get_last_id("transactions")
+        if last_id == 0:
+            return True
+        last_tx_time = self.db.select("transactions",["timecreated"],("id",">=",last_id))[0]["timecreated"]
+        last_tx_time = datetime.datetime.strptime(last_tx_time, "%Y-%m-%d %H:%M:%S").timestamp()
+        if tx_time < last_tx_time:
+            return True
+        return False
+    
+    def fix_last_block(self, data_queue):
+        block_meta = self.db.select("block",["*"],("id",'==',self.db.get_last_id("block")))[0]
+        #get block transactions
+        transactions = self.db.select("transactions",["*"],("id",">=",block_meta["tx_start_id"]),("id","<=",block_meta["tx_end_id"]))
+        tx_list = []
+        meta_list = []
+        for tx in transactions:
+            tx_list.append({
+              'type':'transaction',
+              'item': tx,
+            'time': datetime.datetime.strptime(tx["timecreated"], "%Y-%m-%d %H:%M:%S").timestamp()
+            })
+        # add also queue items to the list
+        tx_list.extend(data_queue)
+        #sort the list
+        tx_list = sorted(tx_list,key=lambda x:x["time"])
+        #iterate over the list and add the transactions to the blockchain
+        for i in range(len(tx_list)):
+            index = block_meta["tx_start_id"] + i 
+            item = tx_list[i]
+            if item["type"] == "transaction":
+                if index == item["item"]["id"]:
+                    item = item["item"]
+                    item.pop("id")
+                    meta_list.append(item)
+                    continue
+                else:
+                    data = item["item"]
+                    data.pop("id")
+                    self.db.update("transactions",("id",'==',index),**data)
+                    meta_list.append(data)
+            else:
+                item = item["item"]
+                record = self.add_record(item["message"]["table_name"],item["message"]["data"])
+                record_id = record.pop("id")
+                new_tx = {
+                    "item_id":record_id,
+                    "item_table":item["message"]["table_name"],
+                    "hash":self.__get_current_hash(record),
+                    "timecreated":datetime.datetime.fromtimestamp(item["time"]).strftime("%Y-%m-%d %H:%M:%S")
+                }
+                self.db.update("transactions",("id",'==',index),**new_tx)
+                meta_list.append(new_tx)
+                
+        merkle_root = self.__get_merkle_root(meta_list)
+        prev_hash = self.__get_previous_hash(block_meta["id"]-1)
+        combined_hash = self.__get_combined_hash(merkle_root,prev_hash)
+        self.db.update("block",("id",'==',block_meta["id"]),merkle_root=merkle_root,combined_hash=combined_hash)
+        return tx_list[self.block_size:]
+        
+    def process_block(self):
+        #get the first transaction 
+        data_queue = []
+        for _ in range(self.block_size):
+            buff= self.buffer.pop()
+            data_queue.append({
+                'type':'queue',
+                'item':buff,
+                'time':buff["message"]["time"]
+            })
+        if not self.check_tx_integrity(data_queue[0]["item"]["message"]["time"]):
+            data_queue = self.fix_last_block(data_queue)
+        self.add_block(data_queue)
+            
+    def add_block(self,data_queue):
+        
         #get all transactions between start and end id
         transactions_meta= []
         #pop out the id from the transactions
-        for _ in range(self.block_size):
-            transaction = self.buffer.pop()
-            item = node.add_record(transaction["message"]["table_name"],transaction["message"]["data"])
-            tx_meta = self.add_transaction(transaction["message"]["table_name"],item,transaction["message"]["time"])
-            transactions_meta.append(tx_meta)    
+        for transaction in data_queue:
+            tx_type = transaction["type"]
+            transaction = transaction["item"]
+            if tx_type == "queue":
+                item = self.add_record(transaction["message"]["table_name"],transaction["message"]["data"])
+                tx_time = transaction["message"]["time"]
+            else:
+                #get the record
+                item = self.get_record(transaction["item_table"],transaction["item_id"])
+                tx_time = transaction["timecreated"]
+            tx_meta = self.add_transaction(transaction["message"]["table_name"],item,tx_time)
+            transactions_meta.append(tx_meta) 
+                
         #get the start and end id
         start_tx = transactions_meta[0]["id"]
         end_tx = transactions_meta[-1]["id"]
@@ -517,7 +600,7 @@ class Blockchain:
         self.buffer.put(msg,msg["time"],hash)
         
         if self.buffer.count() > self.block_size+ len(self.make_function_call(self.sessions,"get_active_nodes"))* self.tolerance:
-            node.add_block()
+            node.process_block()
         
     def get_transaction(self,transaction_id):
         transaction_data = self.get_metadata(transaction_id)

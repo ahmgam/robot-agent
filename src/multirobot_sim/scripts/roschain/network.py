@@ -31,6 +31,8 @@ class NetworkInterface:
         self.node = init_node("network_interface", anonymous=True)
         #define queue
         self.queue = Queue()
+        #define retry queue
+        self.retry_queue = Queue()
         #define key store proxy
         loginfo(f"{self.node_id}: NetworkInterface:Initializing key store service")
         self.key_store = ServiceProxy(f"/{self.node_id}/key_store/call", FunctionCall)
@@ -102,6 +104,8 @@ class NetworkInterface:
         return ret_data
     def verify_data(self,message):
         #check if message has session id
+        original_message = message
+        message = message["data"]
         if message.get("session_id",'') == "": 
             #the message has no session id, so it's discovery message
             #verify the message hash 
@@ -113,7 +117,7 @@ class NetworkInterface:
             if type(message["message"]) is  str:
                 #the message is a string, so it's encrypted discovery message
                 #check if the node does not have active discovery session with the sender
-                session = self.make_function_call(self.sessions,"get_discovery_session",message["node_id"])
+                
                 try:
                     decrypted_data = EncryptionModule.decrypt(message["message"],self.sk)
                     #parse the message
@@ -121,19 +125,29 @@ class NetworkInterface:
                         if self.DEBUG:
                             loginfo(f"{self.node_id}: Invalid message data {decrypted_data}")
                         
-                except Exception as e:
+                except :
                     if self.DEBUG:    
                         loginfo(f"{self.node_id}: error decrypting and parsing data : {e}")
                     return None
                 #validate the message
                 message["message"] = decrypted_data
                 buff["message"] = decrypted_data
+                if decrypted_data["data"].get("discovery_session_id"):
+                    session = self.make_function_call(self.sessions,"get_discovery_session",decrypted_data["data"]["discovery_session_id"])
+                else:
+                    session = self.make_function_call(self.sessions,"get_discovery_session_by_node_id",message["node_id"])
                 if not session:
-                    session = {"pk": decrypted_data["data"]["pk"]}
+                    try:
+                        session = {"pk": decrypted_data["data"]["pk"]}
+                    except Exception as e:
+                        raise Exception(f"error with message of type {message['type']} and session id {message['session_id']}")
                 
             else:
                 #the message is not a string, so it's not encrypted discovery message
-                session = {"pk":message["message"]["data"]["pk"]}
+                try:
+                    session = {"pk":message["message"]["data"]["pk"]}
+                except Exception as e:
+                    raise Exception(f"error with message of type {message['type']}")
                 
             #verify the message signature
             if msg_signature:
@@ -150,9 +164,16 @@ class NetworkInterface:
             #session = self.session_cache.get(message["session_id"])
             session = self.make_function_call(self.sessions,"get_connection_session",message["session_id"])
             if not session:
+                dis_session = self.make_function_call(self.sessions,"get_discovery_session",message["session_id"])
+                if dis_session:
+                    loginfo(f"{self.node_id}: session not found in connection sessions, but it's still in discovery sessions")
+                    #return the message to the queue
+                    self.retry_queue.put(original_message)
+                    return None
+                
                 if self.DEBUG:
-                    session_by_id = self.make_function_call(self.sessions,"get_connection_session_by_node_id",message["node_id"])
-                    loginfo(f"{self.node_id}: Invalid session in network message, message type : {message['type']}, session : {message['session_id']} , msg : {message} , session : {session_by_id}")
+                    session_by_id = self.make_function_call(self.sessions,"get_connection_sessions")
+                    loginfo(f"{self.node_id}: Invalid session in network message, with node {message['node_id']}, message type : {message['type']}, session : {message['session_id']} , sessions : {session_by_id}")
                 return
 
             #decrypt message
@@ -224,8 +245,12 @@ class NetworkInterface:
                     msg_payload["message"] = prepared_message
                     msg_payload["session_id"] = session["session_id"]
                 else:
-                    #check if there is discovery session
-                    session = self.make_function_call(self.sessions,"get_discovery_session",node_id)
+                    #check if message payload contains discovery session id
+                    if message.get("discovery_session_id"):
+                        session = self.make_function_call(self.sessions,"get_discovery_session",message["discovery_session_id"])
+                    else:
+                        #check if there is discovery session
+                        session = self.make_function_call(self.sessions,"get_discovery_session_by_node_id",node_id)
                     if session:
                         #encrypt message data
                         prepared_message = EncryptionModule.encrypt(msg_data,EncryptionModule.reformat_public_key(session["pk"]))
@@ -285,13 +310,16 @@ if __name__ == "__main__":
             #start_time = time()
             if message["type"] == "handle":
                 #print(message["data"])
-                network.handle_message(message["data"])
+                network.handle_message(message)
                 #print(f"Time taken to handle message : {time()-start_time}")
             elif message["type"] == "prepare":
                 network.send_message(message["data"]["type"],message["data"]["target"],message["data"]["message"],message["data"].get("signed",False))
                 #print(f"Time taken to send message : {time()-start_time}")            
             else:
                 loginfo(f"{network.node_id}: Invalid message type on network node, message : {message}")
+        if not network.retry_queue.empty():
+            message = network.retry_queue.get()
+            network.handle_message(message)
         if counter == 10:
             counter = 0
             network.session_cache = network.make_function_call(network.sessions,"get_connection_sessions")
