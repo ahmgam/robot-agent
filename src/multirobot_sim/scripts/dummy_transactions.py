@@ -22,10 +22,11 @@ class DummyTransactions:
         rospy.loginfo(f"{self.node_id}: dummy_transactions: Initializing get_records service client")
         self.is_ready = ServiceProxy(f'/{self.node_id}/roschain/is_ready',Trigger)
         self.is_ready.wait_for_service(timeout=100)
-        while self.is_ready().success == "False":
+        while self.is_ready().success == False:
             rospy.loginfo(f"{self.node_id}: dummy_transactions: Waiting for roschain to be ready")
             rospy.sleep(5)
         self.submit_message = ServiceProxy(f'/{self.node_id}/roschain/submit_message',SubmitTransaction)
+        self.is_idle = ServiceProxy(f'/{self.node_id}/consensus/is_idle',Trigger)
         self.submit_message.wait_for_service(timeout=100)
     
     def getParameters(self):
@@ -76,8 +77,8 @@ class DummyTransactions:
     def loop(self):
         #update position
         self.update_position()
-
-        if (datetime.now() - self.last_state_update).total_seconds() > self.update_interval:
+        idle = self.is_idle()
+        if idle.success == True:
             loginfo(f"prodcasting message no {self.count}")
             self.last_state_update = datetime.now()
             self.submit_node_state() 
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     loginfo("dummy_transactions:Starting the task dummy_transactions node")
     robot = DummyTransactions(msg_count)
     #define rate
-    rate = rospy.Rate(10) # 10hz
+    rate = rospy.Rate(5) # 10hz
     
     while not is_shutdown():
         if robot.count < robot.msg_count:

@@ -10,6 +10,7 @@ import datetime
 from rospy import ServiceProxy,Publisher,Subscriber,Service,ROSInterruptException,Rate,init_node,get_namespace,get_param,loginfo,is_shutdown
 from multirobot_sim.srv import FunctionCall,FunctionCallResponse
 from std_msgs.msg import String
+from std_srvs.srv import Trigger,TriggerResponse
 from queue import Queue
 from messages import MessagePublisher,MessageSubscriber
 #######################################
@@ -65,6 +66,8 @@ class SBFT:
         self.failed_queue = Queue()
         loginfo(f"{self.node_id}: SBFT:Initializing function call service")
         self.server = Service(f"/{self.node_id}/consensus/call",FunctionCall,self.handle_function_call)
+        #define is_idle service
+        self.is_idle_service = Service(f"/{self.node_id}/consensus/is_idle",Trigger,self.is_idle)
         #log publisher
         self.log_publisher = Publisher(f"/{self.node_id}/connector/send_log", String, queue_size=10)
         loginfo(f"{self.node_id}: SBFT:Initialized successfully")
@@ -183,6 +186,12 @@ class SBFT:
             if self.DEBUG:
                 loginfo(f"{self.node_id}: Received message from {msg['message']['node_id']} of type {msg['message']['type']}, but no handler found")
             pass
+    
+    def is_idle(self,msg):
+        #check if the node is idle
+        if self.ongoing_view:
+            return TriggerResponse(False,"Not Ready")
+        return TriggerResponse(True,"Ready")
     
     def send(self,msg):
         if self.DEBUG:
