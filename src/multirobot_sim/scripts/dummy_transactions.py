@@ -3,7 +3,7 @@ from multirobot_sim.srv import SubmitTransaction,SubmitTransactionRequest
 from std_srvs.srv import Trigger
 from rospy import ServiceProxy
 import json
-from rospy import ServiceProxy, get_param, get_namespace, loginfo,ROSInterruptException,is_shutdown
+from rospy import ServiceProxy, get_param, get_namespace, loginfo,ROSInterruptException,is_shutdown,spin
 from datetime import datetime
 import rospy
 from random import randint
@@ -96,11 +96,11 @@ if __name__ == "__main__":
     loginfo("dummy_transactions:Starting the task dummy_transactions node")
     robot = DummyTransactions(msg_count)
     #define rate
-    rate = rospy.Rate(5) # 10hz
+    rate = rospy.Rate(10) # 10hz
     
     while not is_shutdown():
         if robot.count < robot.msg_count:
             robot.loop()
         else:
-            exit()
+            spin()
         rate.sleep()
