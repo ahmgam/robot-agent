@@ -88,7 +88,7 @@ class DummyTransactions:
 if __name__ == "__main__":
     ns = get_namespace()
     try :
-        msg_count= get_param(f'{ns}roschain/msg_count',100) # node_name/argsname
+        msg_count= get_param(f'{ns}roschain/msg_count',50) # node_name/argsname
         loginfo("ROSCHAIN: Getting msg_count argument, and got : ", msg_count)
 
     except ROSInterruptException:
