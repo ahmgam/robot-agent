@@ -32,6 +32,7 @@ do
       - SECRET=lkfpoewrvcmlsdjfjehf
       - UPDATE_INTERVAL=5
       - MIN_NODES_NUM=$min_nodes_num
+      - TIMEOUT_INTERVAL=60
     deploy:
       resources:
         limits:
