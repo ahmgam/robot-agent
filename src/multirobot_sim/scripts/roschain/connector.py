@@ -34,7 +34,7 @@ class MQTTCommunicationModule:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         try:
-            self.client.connect(self.endpoint, self.port)
+            self.client.connect(self.endpoint, self.port,120)
             self.client.subscribe(f"{self.base_topic}/{self.node_id}")
             self.client.subscribe(f"{self.base_topic}")
         except Exception as e:
